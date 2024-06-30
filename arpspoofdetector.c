@@ -1,16 +1,20 @@
+//Regurly we use in all
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+//Internet headers
 #include <pcap.h>
 #include <arpa/inet.h>
 #include <time.h>
 #include <unistd.h>
 #include <net/ethernet.h>
+#include <netinet/ip.h>
 
 //define some funtions
 void print_help();
 
 void print_start(){
+    //Define ascii for tool name
     printf("\n");
     printf("               AAA               RRRRRRRRRRRRRRRRR   PPPPPPPPPPPPPPPPP           SSSSSSSSSSSSSSS PPPPPPPPPPPPPPPPP        OOOOOOOOO          OOOOOOOOO     FFFFFFFFFFFFFFFFFFFFFF \n"); 
     printf("              A:::A              R::::::::::::::::R  P::::::::::::::::P        SS:::::::::::::::SP::::::::::::::::P     OO:::::::::OO      OO:::::::::OO   F::::::::::::::::::::F \n");
@@ -64,17 +68,50 @@ void print_start(){
     printf("             VVV            111111111111 ......      000000000         \n\n");      
 }
 
+//get mac address from the reciever
+char *get_reciever_mac(const struct ether_header *getinfo) {
+    static char MAC_addr[20]; //reciever mac buffer
+    sprintf(MAC_addr, "%02X:%02X:%02X:%02X:%02X:%02X",
+            getinfo->ether_dhost[0], getinfo->ether_dhost[1],
+            getinfo->ether_dhost[2], getinfo->ether_dhost[3],
+            getinfo->ether_dhost[4], getinfo->ether_dhost[5]);
+    return MAC_addr; // create and return that address
+}
+
+//get mac address from sender 
+char *get_sender_mac(const struct ether_header *getinfo) {
+    static char MAC_addr[20]; //sender mac buffer
+    sprintf(MAC_addr, "%02X:%02X:%02X:%02X:%02X:%02X",
+            getinfo->ether_shost[0], getinfo->ether_shost[1],
+            getinfo->ether_shost[2], getinfo->ether_shost[3],
+            getinfo->ether_shost[4], getinfo->ether_shost[5]);
+    return MAC_addr;
+}
+
 void packet_info(unsigned char *args,const struct pcap_pkthdr *handler,const unsigned char *packet){
     char *time_info = ctime(&handler->ts.tv_sec); 
-    struct ether_header *getinfo;
-    printf("\n---------------------------------------------\n");
-    printf("Packet recieved at : %s",time_info);
-    printf("Length of captured packet : %d\n",handler->caplen);
-    printf("Total number packets captured : %d\n",handler->len);
-    printf("Packet type : %d\n",getinfo->ether_type);
-    printf("Send packets from : %s:%s:%s:%s:%s:%s\n",ntohs(getinfo->ether_dhost));
-    printf("\n---------------------------------------------\n");
-    printf("\n");
+    const struct ether_header *getinfo = (struct ether_header *)packet;
+    char *s_mac_addr = get_sender_mac(getinfo);
+    char *r_mac_addr = get_reciever_mac(getinfo);
+    uint16_t ether_type = ntohs(getinfo->ether_type);
+    struct ip *ip_header = (struct ip *)packet;
+
+    if(ether_type == ETHERTYPE_ARP){
+        /**
+         * get ethertype of arp and get more info about it.
+        */
+        printf("\n---------------------------------------------\n");
+        printf("Packet recieved at : %s",time_info);
+        printf("Length of captured packet : %d\n",handler->caplen);
+        printf("Total number packets captured : %d\n",handler->len);
+        printf("Packet type : %d(ARP)\n",ether_type);
+        printf("Sender MAC: %s\n",s_mac_addr);
+        printf("Reciever MAC: %s",r_mac_addr);
+        printf("\n---------------------------------------------\n");
+        printf("\n");
+    } else {
+        printf("Still arp packets not send!\n");
+    }
 }
 
 int capture_network_packets(char *interface_name){
@@ -85,6 +122,7 @@ int capture_network_packets(char *interface_name){
 
     handle = pcap_open_live(interface_name,BUFSIZ,1,1000,error);
 
+    //if interface name is empty it show error message like this
     if(strcmp(interface_name,"") == 0){
         printf("Error found : interface name not found !\n");
         is_state = 0;
@@ -101,7 +139,7 @@ int capture_network_packets(char *interface_name){
         is_state = 1;
     }  
 
-    if(pcap_compile(handle,&total_struct,"ip",1,PCAP_NETMASK_UNKNOWN) == -1){
+    if(pcap_compile(handle,&total_struct,"arp",1,PCAP_NETMASK_UNKNOWN) == -1){
         printf("BPF Compilation error\n");
         is_state = 0;
         exit(1);
@@ -116,7 +154,7 @@ int capture_network_packets(char *interface_name){
         is_state = 1;
 
     } if(is_state == 1){
-        printf("Listening on %s\n",interface_name);
+        printf("Listening on %s...\n",interface_name);
         pcap_loop(handle,-1,packet_info,error);
     } else {
         printf("Error Aquired!\n");
@@ -135,6 +173,7 @@ void print_help(){
     exit(1);
 }
 
+//show all interface from your device and list it all.
 void print_available_interface(){
     pcap_if_t *device_name,*all_device;
     char error[PCAP_ERRBUF_SIZE];
@@ -162,8 +201,10 @@ int main(int argc,char *argv[]){
         print_available_interface();
         printf("--------------------------------------\n");
     } else if(strcmp(argv[1],"-v") == 0 || strcmp(argv[1],"--version") == 0){
+        //Shows the version of the tool
         printf("ARP SPOOF DETECTOR V0.1\n");
     } else if(strcmp(argv[1],"-i") == 0 || strcmp(argv[1],"--interface") == 0){
+        print_start();
         capture_network_packets(argv[2]);
     } else {
         printf("Invalid arguments.\n");
