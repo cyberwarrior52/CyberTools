@@ -223,6 +223,7 @@ int main(int argc,char *argv[]){
         printf("ARP SPOOF DETECTOR V0.1\n");
     } else if(strcmp(argv[1],"-i") == 0 || strcmp(argv[1],"--interface") == 0){
         if(argc < 3){
+            system("clear");
             print_start();
             print_available_interface();
             printf("Usage : %s [Your command should has been interface name : -l / --lookup]\n",argv[0]);

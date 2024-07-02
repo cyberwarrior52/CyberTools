@@ -24,8 +24,6 @@ sudo apt install libpcap-dev
 ```
 # If we won't install above dependencies, this tool won't work
 
-# How to Use this tool?
-
 # Step by step guid to demonstrate it,
 
 Firstly,We clone our git repo
@@ -52,6 +50,6 @@ gcc arpspoofdetector.c -o arpspoofdetect -lpcap
 
 Finally,We run the file
 ```
-sudo ./arpspoofdetect
+sudo ./arpspoofdetect [flags]
 
 ```
