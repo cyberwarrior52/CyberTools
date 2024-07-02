@@ -82,6 +82,9 @@ void print_start(){
     printf("            V:::V           1::::::::::1 .::::.    00:::::::::00       \n");                                   
     printf("             VVV            111111111111 ......      000000000         \n\n");      
 }
+void alert_spoof(char *ip, char *mac){
+	printf("\nAlert: Possible ARP Spoofing Detected. IP: %s and MAC: %s\n", ip, mac);
+} 
 
 //get mac address from the reciever
 char *get_reciever_mac(const struct ether_header *getinfo) {
@@ -91,6 +94,18 @@ char *get_reciever_mac(const struct ether_header *getinfo) {
             getinfo->ether_dhost[2], getinfo->ether_dhost[3],
             getinfo->ether_dhost[4], getinfo->ether_dhost[5]);
     return MAC_addr; // create and return that address
+}
+
+char *get_sender_ip(uint8_t ip[4]){
+    char *IP_addr = (char *)malloc(20*sizeof(char));
+    sprintf(IP_addr,"%d.%d.%d.%d",ip[0],ip[1],ip[2],ip[3]);
+    return IP_addr;
+}
+
+char *get_reciever_ip(uint8_t ip[4]){
+    char *IP_addr = (char *)malloc(20*sizeof(char));
+    sprintf(IP_addr,"%d.%d.%d.%d",ip[0],ip[1],ip[2],ip[3]);
+    return IP_addr;
 }
 
 //get mac address from sender 
@@ -106,14 +121,9 @@ char *get_sender_mac(const struct ether_header *getinfo) {
 void capture_network_packets(char *interface_name){
     pcap_t *handle;
     char error[PCAP_ERRBUF_SIZE];
-    unsigned char *packet;
-    struct pcap_pkthdr *handler;
-    char *time_info = ctime(&handler->ts.tv_sec); 
-    struct ether_header *getinfo = (struct ether_header *)packet;
-    char *s_mac_addr = get_sender_mac(getinfo);
-    char *r_mac_addr = get_reciever_mac(getinfo);
-    uint16_t ether_type = ntohs(getinfo->ether_type);
-    struct arp_hdr *get_arp_details = (struct arp_hdr *)(packet+14);
+    const unsigned char *packet;
+    struct pcap_pkthdr handler;
+    int counter = 0;
 
     handle = pcap_open_live(interface_name,BUFSIZ,1,1000,error);
 
@@ -125,21 +135,45 @@ void capture_network_packets(char *interface_name){
     if(handle == NULL){
         printf("Cannot action live, Due to %s\n",error);
         exit(1);
+    } else {
+        printf("\nListening on %s....\n",interface_name);
     }
-
     while(1){
+        packet = pcap_next(handle,&handler);
+        
+        if(packet == NULL){
+            printf("Error Aquired : %s\n",pcap_geterr(handle));
+        }
+        struct ether_header *getinfo = (struct ether_header *)packet;
+        uint16_t ether_type = ntohs(getinfo->ether_type);
+
         if(ether_type == ETHERTYPE_ARP){
+            counter++;
+            time_t cap_time = handler.ts.tv_sec;
+            char *s_mac_addr = get_sender_mac(getinfo);
+            char *r_mac_addr = get_reciever_mac(getinfo);
+            char *time_info = ctime(&cap_time);
+            struct arp_hdr *get_arp_details = (struct arp_hdr *)(packet+14);
+            char *s_ip_addr = get_sender_ip(get_arp_details->spa);
+            char *r_ip_addr = get_reciever_ip(get_arp_details->tpa);
+
             printf("\n---------------------------------------------\n");
             printf("Packet recieved at : %s",time_info);
-            printf("Length of captured packet : %d\n",handler->len);
+            printf("Length of captured packet : %d\n",handler.caplen);
             printf("Total number packets captured : %d\n",ETHER_ADDR_LEN);
             printf("Operation type : %s\n",((ntohs(get_arp_details->oper) == ARP_REQUESTS) ? "ARP Request" : "ARP Response"));
             printf("Packet type : %d(ARP)\n",ether_type);
             printf("Sender MAC: %s\n",s_mac_addr);
-            printf("Reciever MAC: %s",r_mac_addr);
+            printf("Reciever MAC: %s\n",r_mac_addr);
+            printf("Sender ip : %s\n",s_ip_addr);
+            printf("Reciever ip : %s",r_ip_addr);
             printf("\n---------------------------------------------\n");
             printf("\n");
+            if(counter > 10){
+                alert_spoof(s_ip_addr, s_mac_addr);
+            }
         }
+        
     }
 }
 
