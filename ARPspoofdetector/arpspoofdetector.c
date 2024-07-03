@@ -169,9 +169,6 @@ void capture_network_packets(char *interface_name){
             printf("Reciever ip : %s",r_ip_addr);
             printf("\n---------------------------------------------\n");
             printf("\n");
-            if(counter > 10){
-                alert_spoof(s_ip_addr, s_mac_addr);
-            }
         }
         
     }
