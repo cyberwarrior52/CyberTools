@@ -120,6 +120,8 @@ char *get_sender_mac(const struct ether_header *getinfo) {
 
 void capture_network_packets(char *interface_name){
     pcap_t *handle;
+    time_t start_timer,end_timer;
+    long int diff;
     char error[PCAP_ERRBUF_SIZE];
     const unsigned char *packet;
     struct pcap_pkthdr handler;
@@ -137,7 +139,9 @@ void capture_network_packets(char *interface_name){
         exit(1);
     } else {
         printf("\nListening on %s....\n",interface_name);
+        system("clear");
     }
+    start_timer = time(NULL);
     while(1){
         packet = pcap_next(handle,&handler);
         
@@ -148,7 +152,13 @@ void capture_network_packets(char *interface_name){
         uint16_t ether_type = ntohs(getinfo->ether_type);
 
         if(ether_type == ETHERTYPE_ARP){
-            counter++;
+            start_timer = time(NULL);
+            diff = start_timer - end_timer;
+            if(diff > 20){
+                counter = 0;
+            }
+
+
             time_t cap_time = handler.ts.tv_sec;
             char *s_mac_addr = get_sender_mac(getinfo);
             char *r_mac_addr = get_reciever_mac(getinfo);
@@ -169,6 +179,13 @@ void capture_network_packets(char *interface_name){
             printf("Reciever ip : %s",r_ip_addr);
             printf("\n---------------------------------------------\n");
             printf("\n");
+            
+            counter++;
+            end_timer = time(NULL);
+            if(counter > 10){
+                alert_spoof(s_ip_addr, s_mac_addr);
+            }
+
         }
         
     }
