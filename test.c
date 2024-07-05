@@ -1,25 +1,13 @@
 #include <stdio.h>
 #include <string.h>
-#include <netinet/in.h>
-#include <net/ethernet.h>
+#include <stdlib.h>
+int main(int argc,char *argv[]){
+    char of[2];
 
-char *get_mac(const struct ether_header *getinfo) {
-    static char MAC_addr[20];
-    sprintf(MAC_addr, "%02X:%02X:%02X:%02X:%02X:%02X",
-            getinfo->ether_dhost[0], getinfo->ether_dhost[1],
-            getinfo->ether_dhost[2], getinfo->ether_dhost[3],
-            getinfo->ether_dhost[4], getinfo->ether_dhost[5]);
-    return MAC_addr;
-}
+    if(strcmp(argv[1],"") == 0){
+        printf("These are empty\n");
+    } else {
+        system(strcat("./",argv[1]));
+    }
 
-int main() {
-    struct ether_header header;
-    // For demonstration purposes, we'll manually set the MAC address here
-    unsigned char mac[6] = {0x00, 0x1A, 0x2B, 0x3C, 0x4D, 0x5E};
-    memcpy(header.ether_dhost, mac, sizeof(mac));
-
-    char *mac_addr = get_mac(&header);
-    printf("Mac Addr : %s\n", mac_addr);
-
-    return 0;
 }
