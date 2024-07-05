@@ -21,3 +21,9 @@ This tool is used to demostrate dos attack, it fully for educational purpose.ple
 
 # How to execute this tool?
 ```
+git clone https://git.selfmade.ninja/mohamedhathim628/linux-with-c.git
+cd DosBro
+ls
+python3 Dos.py
+```
+Enjoy!

@@ -10,11 +10,12 @@ def Dashboard():
     text = pyfiglet.figlet_format("Dos Bro",font="slant")
     print(RED+text)
 
-def help():
+def help(current_usage):
     print("-v or --version        \t: To print version of the tool")
     print("-h or --help           \t: To print the help of the tool")
     print("-s[url] or --send[url] \t: put the targeted website")
     print("-sc[url] or --statuscode[url] : To get the current status of the website")
+    print("\nUsage :"+current_usage)
 
 def status_code(url):
     statuscode = requests.get(url)
@@ -50,7 +51,7 @@ def main():
         Dashboard()
 
     elif sys.argv[1] == "--help" or sys.argv[1] == "-h":
-        help()
+        help(sys.argv[0])
 
     elif sys.argv[1] == "-s" or sys.argv[1] == "--send":
         if lenth_of_args < 1:
@@ -69,7 +70,7 @@ def main():
         else:
             status_code(sys.argv[2])
     else:
-        help()
+        help(sys.argv[0])
         exit(1)
 
 if __name__ == "__main__":
