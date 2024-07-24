@@ -22,7 +22,7 @@ sudo apt-get install libzip-dev
 ```
 
 # Note:
-if we want to crack the zip file.the file must be in this directory and follow these below steps.
+if we want to crack the zip file.the zip file and word list file must be in this directory and follow these below steps.
 
 ```
 git clone https://git.selfmade.ninja/mohamedhathim628/linux-with-c.git
