@@ -157,8 +157,6 @@ void capture_network_packets(char *interface_name){
             if(diff > 20){
                 counter = 0;
             }
-
-
             time_t cap_time = handler.ts.tv_sec;
             char *s_mac_addr = get_sender_mac(getinfo);
             char *r_mac_addr = get_reciever_mac(getinfo);
