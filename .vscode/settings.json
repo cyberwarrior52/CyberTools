@@ -4,6 +4,19 @@
         "typeinfo": "c",
         "pcap.h": "c",
         "in.h": "c",
-        "inet.h": "c"
+        "inet.h": "c",
+        "n.h": "c",
+        "string.h": "c",
+        "stdlib.h": "c",
+        "unistd.h": "c",
+        "ip.h": "c",
+        "string": "c",
+        "socket.h": "c",
+        "zip.h": "c",
+        "unzip.h": "c",
+        "boot.h": "c",
+        "libs.h": "c",
+        "concat.h": "c",
+        "ip_icmp.h": "c"
     }
 }

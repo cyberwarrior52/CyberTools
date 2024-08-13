@@ -1,99 +1,90 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <pcap.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
+#include <netinet/ip.h>
 
-//define macros
+// Checksum function
+uint16_t chksum(void *data, int length) {
+    uint32_t sum = 0;
+    uint16_t *pkt = data;
 
-#define BUFFER 1024
-#define FALSE_IP "99.99.99.99"
-#define TARGET_IP "8.8.8.8"
-#define DEVICE "enx7a188b3fd951"
-
-uint8_t chksum(const uint8_t *data){
-    uint8_t checksum = 0,i;
-    int sum = 0;
-
-    if(strlen(data) < 1)
-        return 0;
-
-    for(i = 0;i < strlen(data);i++){
-        sum += (unsigned char)data[i];
+    while (length > 1) {
+        sum += *pkt++;
+        length -= 2;
     }
-    checksum = sum & 0xFF;
-    return ~checksum;
+
+    if (length == 1)
+        sum += *(uint8_t *)pkt;
+
+    sum = (sum >> 16) + (sum & 0xFFFF);
+    sum += (sum >> 16);
+
+    return ~sum;
 }
 
-int main(){
-    int sock,*opt; //init socket
-    struct sockaddr dest_ip;
-    char packet_ip[BUFFER];
-    char packet_icmp[BUFFER];
-    struct iphdr *ip_header = (struct iphdr *)packet_ip;
-    struct icmphdr *icmp_header = (struct icmphdr *)packet_icmp;
+// Function to create ICMP echo request packets
+void make_packets(char *source, char *dest, char *pack) {
+    struct icmphdr *icmp_pack = (struct icmphdr *)(pack + sizeof(struct iphdr));
+    struct iphdr *ip_header = (struct iphdr *)pack;
 
-    //To fill ip header and icmp header
+    // Fill in the ICMP Header
+    icmp_pack->type = ICMP_ECHO;
+    icmp_pack->code = 0;
+    icmp_pack->un.echo.id = htons(1223);
+    icmp_pack->un.echo.sequence = htons(1);
+    icmp_pack->checksum = 0;
+    icmp_pack->checksum = chksum((uint16_t *)icmp_pack, sizeof(struct icmphdr));
 
+    // Fill in the IP Header
+    ip_header->saddr = inet_addr(source);
+    ip_header->daddr = inet_addr(dest);
     ip_header->version = 4;
-    ip_header->ttl = 64;
     ip_header->ihl = 5;
+    ip_header->tot_len = htons(sizeof(struct iphdr) + sizeof(struct icmphdr));
+    ip_header->id = htons(54321); // Packet ID
+    ip_header->ttl = 64;
     ip_header->protocol = IPPROTO_ICMP;
-    ip_header->tos = 0;
-    ip_header->id = htons(1111);
-    ip_header->daddr = inet_addr(FALSE_IP);
-    ip_header->saddr = inet_addr(TARGET_IP);
-    ip_header->check = chksum(packet_ip);
+    ip_header->check = 0;
+    ip_header->check = chksum((uint16_t *)ip_header, sizeof(struct iphdr));
 
-    sock = socket(AF_INET,SOCK_RAW,IPPROTO_ICMP);
-    dest_ip.sa_family = AF_INET;
+    printf("ICMP packet created successfully.\n");
+}
 
-    if(sock == -1){
-        perror("open socket");
+// Function to send the packet
+void send_packet(char *dst_ip, char *data_buff, size_t data_size) {
+    struct sockaddr_in sock;
+    sock.sin_family = AF_INET;
+    sock.sin_addr.s_addr = inet_addr(dst_ip);
+
+    int socket_init = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    int sock_opt_val = 1;
+
+    if (socket_init < 0) {
+        perror("init socket");
         exit(EXIT_FAILURE);
     }
 
-    if(setsockopt(sock,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt)) == -1){
-        perror("in socket setup");
+    if (setsockopt(socket_init, IPPROTO_IP, IP_HDRINCL, &sock_opt_val, sizeof(sock_opt_val)) < 0) {
+        perror("[-] Error! Cannot set IP_HDRINCL");
         exit(EXIT_FAILURE);
     }
 
-    if(sendto(sock,FALSE_IP,sizeof(FALSE_IP),0,(struct sockaddr *)&dest_ip,sizeof(dest_ip)) == -1){
-        perror("in send");
-    }
-    
-    //To create and make icmp echo and get packets
-    
-    pcap_t *handle;
-    struct pcap_pkthdr *getstruct;
-    char error[PCAP_ERRBUF_SIZE];
-
-    handle = pcap_open_live(DEVICE,BUFSIZ,1,1000,error);
-
-    //To define icmp echo header
-
-    icmp_header->type = ICMP_ECHO;
-    icmp_header->code = 0;
-    icmp_header->un.echo.id = htons(1);
-    icmp_header->un.echo.sequence = htons(0);
-    icmp_header->checksum = chksum(packet_icmp);
-
-    if(handle == NULL){
-        perror("in opening live");
+    if (sendto(socket_init, data_buff, data_size, 0, (struct sockaddr *)&sock, sizeof(sock)) == -1) {
+        perror("in send pack");
         exit(EXIT_FAILURE);
-    } else {
-        printf("[+] Sniffing on %s...",DEVICE);
     }
 
-    while(1){
-        if(pcap_next(handle,getstruct) == NULL){
-            perror("in pcap_next()");
-            exit(EXIT_FAILURE);
-        } else {
-            printf("\n[+] Reply recieve\n");
-        }
-    }
+    printf("Spoofed ICMP packet sent successfully.\n");
+}
+
+int main() {
+    char buffer[99999];
+    char source_ip[] = "122.1.1.1"; //our custome source ip 
+    char dest_ip[] = "193.1.1.1"; //our custome destination ip
+    make_packets(source_ip, dest_ip, buffer);
+    send_packet(dest_ip, buffer, sizeof(struct iphdr) + sizeof(struct icmphdr));
+    return 0;
 }
