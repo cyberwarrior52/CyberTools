@@ -35,6 +35,8 @@ typedef unsigned char u_char;
 
 
 //Define macros
+#define WELCOME_MESSAGE "Welcome our vpn server"
+
 #define SEC_KEY "helloworld" //thus, stands for secure key and thier value is "helloworld"
 
 #define R_WORD "hw"
@@ -318,265 +320,127 @@ void init_pack(pcap_t *handle,char *interface_name,char *p_type){//p_type stands
     pcap_close(handle);
 }
 
-void vpn_server(const char *s_name) {
-    struct sockaddr_in addr_sock, dst_addr;
+void vpn_server(char *s_name){
+    struct sockaddr_in addr_sock,dst_addr;
+    char dst_ip[INET_ADDRSTRLEN]; //its for store destination ip.
     SSL *ssl_init;
     SSL_CTX *ctx;
     int opt_l = 1;
-    int server, sock_a;
-    socklen_t dest_len = sizeof(dst_addr);
+    int sock_a;
 
-    // Initialize OpenSSL
-    SSL_library_init();
+    //initialize ssl
+    OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS | OPENSSL_INIT_LOAD_CRYPTO_STRINGS,NULL);
     SSL_load_error_strings();
     OpenSSL_add_all_algorithms();
 
-    // Create SSL context for a server
+    socklen_t dest_len = sizeof(dst_addr);
+
+    //intialize ssl context.
     ctx = SSL_CTX_new(TLS_server_method());
-    if (!ctx) {
-        fprintf(stderr, "Error creating SSL context\n");
-        ERR_print_errors_fp(stderr);
+    if(!ctx){
+        perror("init ssl context:");
+        handleErrors();
         exit(EXIT_FAILURE);
     }
 
-    // Set acceptable SSL/TLS protocol versions
-    if (SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION) == 0) {
-        fprintf(stderr, "Error setting min protocol version\n");
-        ERR_print_errors_fp(stderr);
-        SSL_CTX_free(ctx);
-        exit(EXIT_FAILURE);
-    }
-    if (SSL_CTX_set_max_proto_version(ctx, TLS1_3_VERSION) == 0) {
-        fprintf(stderr, "Error setting max protocol version\n");
-        ERR_print_errors_fp(stderr);
-        SSL_CTX_free(ctx);
+    //To init the certificate for connection and encrypted data.
+    if(SSL_CTX_use_certificate_file(ctx,"server.crt",SSL_FILETYPE_PEM) == -1){
+        perror("gen certificate");
+        handleErrors();
         exit(EXIT_FAILURE);
     }
 
-    // Load server certificate and private key
-    if (SSL_CTX_use_certificate_file(ctx, "server.crt", SSL_FILETYPE_PEM) <= 0) {
-        fprintf(stderr, "Error loading certificate\n");
-        ERR_print_errors_fp(stderr);
-        SSL_CTX_free(ctx);
-        exit(EXIT_FAILURE);
-    }
-    if (SSL_CTX_use_PrivateKey_file(ctx, "server.key", SSL_FILETYPE_PEM) <= 0) {
-        fprintf(stderr, "Error loading private key\n");
-        ERR_print_errors_fp(stderr);
-        SSL_CTX_free(ctx);
+    //To generate private key
+    if(SSL_CTX_use_PrivateKey_file(ctx,"server.key",SSL_FILETYPE_PEM) == -1){
+        perror("gen private key");
+        handleErrors();
         exit(EXIT_FAILURE);
     }
 
-    // Verify that the private key matches the certificate
-    if (SSL_CTX_check_private_key(ctx) == 0) {
-        fprintf(stderr, "Private key does not match the certificate public key\n");
-        ERR_print_errors_fp(stderr);
-        SSL_CTX_free(ctx);
-        exit(EXIT_FAILURE);
-    }
-
-    // Create and configure server socket
-    server = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (server == -1) {
-        perror("socket");
-        SSL_CTX_free(ctx);
-        exit(EXIT_FAILURE);
-    }
-
-    if (setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &opt_l, sizeof(opt_l)) == -1) {
-        perror("setsockopt");
-        close(server);
-        SSL_CTX_free(ctx);
-        exit(EXIT_FAILURE);
-    }
-
+    //fill the socket address 
     addr_sock.sin_family = AF_INET;
     addr_sock.sin_addr.s_addr = INADDR_ANY;
     addr_sock.sin_port = htons(SOCK_PORT);
 
-    if (bind(server, (struct sockaddr *)&addr_sock, sizeof(addr_sock)) == -1) {
-        perror("bind");
-        close(server);
+    int server = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
+
+    if(server == -1){
+        perror("init server");
         SSL_CTX_free(ctx);
         exit(EXIT_FAILURE);
     }
 
-    if (listen(server, 3) == -1) {
+    if(setsockopt(server,SOL_SOCKET,SO_REUSEADDR,&opt_l,sizeof(opt_l)) == -1){
+        perror("setting server");
+        SSL_CTX_free(ctx);
+        exit(EXIT_FAILURE);
+    }
+
+    if(bind(server,(struct sockaddr *)&addr_sock,sizeof(addr_sock)) == -1){
+        perror("Binding error:");
+        SSL_CTX_free(ctx);
+        exit(EXIT_FAILURE);
+    }
+
+    if(listen(server,3) == -1){
         perror("listen");
-        close(server);
         SSL_CTX_free(ctx);
         exit(EXIT_FAILURE);
     }
 
-    printf("Server %s is listening on port %d...\n", s_name, SOCK_PORT);
+    printf("Server %s%s%s successfully starts and is listen this port %d...\n\n",GREEN,s_name,RESET,SOCK_PORT);//it appear to the user,the server been starts
+    printf(RED"\t\t\t%s\t\t\t\n",s_name); //appear server on red color
 
-    // Accept client connection
-    sock_a = accept(server, (struct sockaddr *)&dst_addr, &dest_len);
-    if (sock_a == -1) {
+    sock_a = accept(server,(struct sockaddr *)&dst_addr,&dest_len);//for accept clients.
+
+    if(sock_a < 0){
         perror("accept");
         close(server);
         SSL_CTX_free(ctx);
         exit(EXIT_FAILURE);
     }
 
-    char dst_ip[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &dst_addr.sin_addr, dst_ip, sizeof(dst_ip));
-    int client_port = ntohs(dst_addr.sin_port);
-    printf("Client %s connected on port %d\n", dst_ip, client_port);
+    inet_ntop(AF_INET,&dst_addr.sin_addr,dst_ip,INET_ADDRSTRLEN);
 
-    // Create SSL object
+    int client_port = ntohs(dst_addr.sin_port);
+    printf("The client %s connect with port %d\n",dst_ip,client_port); 
+
+    //Make new object for ssl
     ssl_init = SSL_new(ctx);
-    if (!ssl_init) {
-        fprintf(stderr, "Error creating SSL object\n");
-        ERR_print_errors_fp(stderr);
-        close(sock_a);
+
+    if(!ssl_init){
+        perror("init ssl");
         close(server);
-        SSL_CTX_free(ctx);
         exit(EXIT_FAILURE);
     }
 
-    // Associate SSL object with socket
-    SSL_set_fd(ssl_init, sock_a);
+    SSL_set_fd(ssl_init,sock_a);
 
-    // Perform SSL/TLS handshake
-    if (SSL_accept(ssl_init) <= 0) {
-        fprintf(stderr, "SSL_accept failed\n");
+    if(SSL_accept(ssl_init) <= 0){
         ERR_print_errors_fp(stderr);
         SSL_free(ssl_init);
-        close(sock_a);
         close(server);
+        close(sock_a);
         SSL_CTX_free(ctx);
         exit(EXIT_FAILURE);
     }
 
-    // Send data
-    if (SSL_write(ssl_init, s_name, strlen(s_name)) <= 0) {
-        fprintf(stderr, "SSL_write failed\n");
+    if(SSL_write(ssl_init,s_name,strlen(s_name)) == -1){
         ERR_print_errors_fp(stderr);
+        SSL_free(ssl_init);
+        SSL_CTX_free(ctx);
+        close(server);
+        close(sock_a);
+        exit(EXIT_FAILURE);
     }
 
-    // Clean up
+    
     SSL_free(ssl_init);
     close(sock_a);
     close(server);
     SSL_CTX_free(ctx);
 }
 
-
-// void vpn_server(char *s_name){
-//     struct sockaddr_in addr_sock,dst_addr;
-//     SSL *ssl_init;
-//     SSL_CTX *ctx;
-//     int opt_l = 1;
-//     int sock_a;
-
-//     //initialize ssl
-//     SSL_library_init();
-//     SSL_load_error_strings();
-//     OpenSSL_add_all_algorithms();
-
-//     socklen_t dest_len = sizeof(dst_addr);
-//     socklen_t addr_len = sizeof(addr_sock);
-
-//     //fill the socket address 
-//     addr_sock.sin_family = AF_INET;
-//     addr_sock.sin_addr.s_addr = INADDR_ANY;
-//     addr_sock.sin_port = htons(SOCK_PORT);
-
-//     //intialize ssl context.
-//     if(!SSL_CTX_new(TLS_server_method())){
-//         perror("init ssl context:");
-//         SSL_CTX_free(ctx);
-//         exit(EXIT_FAILURE);
-//     }
-
-//     //To init the certificate for connection and encrypted data.
-//     if(SSL_CTX_use_certificate_file(ctx,"/home/mohamed/Downloads/C/vpn/ssl/server.crt",SSL_FILETYPE_PEM) == -1){
-//         perror("gen certificate");
-//         SSL_CTX_free(ctx);
-//         exit(EXIT_FAILURE);
-//     }
-
-//     //To generate private key
-//     if(SSL_CTX_use_PrivateKey_file(ctx,"/home/mohamed/Downloads/C/vpn/ssl/server.key",SSL_FILETYPE_PEM) == -1){
-//         perror("gen private key");
-//         SSL_CTX_free(ctx);
-//         exit(EXIT_FAILURE);
-//     }
-
-//     int server = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
-
-//     if(server == -1){
-//         perror("init server");
-//         SSL_CTX_free(ctx);
-//         exit(EXIT_FAILURE);
-//     }
-
-//     if(setsockopt(server,SOL_SOCKET,SO_REUSEADDR,&opt_l,sizeof(opt_l)) == -1){
-//         perror("setting server");
-//         SSL_CTX_free(ctx);
-//         exit(EXIT_FAILURE);
-//     }
-
-//     if(bind(server,(struct sockaddr *)&addr_sock,sizeof(addr_sock)) == -1){
-//         perror("Binding error:");
-//         SSL_CTX_free(ctx);
-//         exit(EXIT_FAILURE);
-//     }
-
-//     if(listen(server,3) == -1){
-//         perror("listen");
-//         SSL_CTX_free(ctx);
-//         exit(EXIT_FAILURE);
-//     }
-
-//     printf("Server %s%s%s successfully starts and is listen this port %d...\n\n",GREEN,s_name,RESET,SOCK_PORT);//it appear to the user,the server been starts
-//     printf(RED"\t\t\t%s\t\t\t\n",s_name); //appear server on red color
-
-//     if(sock_a = accept(server,(struct sockaddr *)&dst_addr,&dest_len) == -1){
-//         perror("accept");
-//         close(server);
-//         SSL_CTX_free(ctx);
-//         exit(EXIT_FAILURE);
-//     }
-
-//     char dst_ip[INET_ADDRSTRLEN];
-//     inet_ntop(AF_INET,&dst_addr.sin_addr.s_addr,dst_ip,INET_ADDRSTRLEN);
-
-//     int client_port = ntohs(dst_addr.sin_port);
-//     printf("The client %s connect with port %d\n",dst_ip,client_port); 
-
-//     //Make new object for ssl
-//     ssl_init = SSL_new(ctx);
-
-//     if(!ssl_init){
-//         perror("init ssl");
-//         SSL_CTX_free(ctx);
-//         close(server);
-//         exit(EXIT_FAILURE);
-//     }
-
-//     SSL_set_fd(ssl_init,sock_a);
-
-//     if(SSL_accept(ssl_init) == -1){
-//         perror("SSL_accept()");
-//         SSL_free(ssl_init);
-//         SSL_CTX_free(ctx);
-//         exit(EXIT_FAILURE);
-//     }
-
-//     if(SSL_write(ssl_init,s_name,1024) == -1){
-//         perror("SSL_write");
-//         SSL_free(ssl_init);
-//         SSL_CTX_free(ctx);
-//         exit(EXIT_FAILURE);
-//     }
-
-    
-//     SSL_free(ssl_init);
-//     SSL_CTX_free(ctx);
-//     close(server);
-// }
 
 int main(int argc,char *argv[]){
     //We have 8 argumnets totally.
@@ -613,3 +477,7 @@ int main(int argc,char *argv[]){
         }
     }
 }
+
+/**
+ * TODO : icmp pakcet capture have pending and change user ip to vpn ip.and do next other things
+*/
