@@ -30,9 +30,10 @@ typedef unsigned char u_char;
 #define CYAN        "\033[36m"
 #define WHITE       "\033[37m"
 
-//Define Macros for database
-#define GET_QUERY "SELECT * FROM database"
-
+//To get length of encryption
+#define MAX_NAME_LENGTH 64
+#define MAX_PASSWORD_LENGTH 64
+#define MAX_ENCRYPTED_LENGTH (crypto_secretbox_MACBYTES + MAX_NAME_LENGTH + MAX_PASSWORD_LENGTH)
 
 //Define macros
 #define WELCOME_MESSAGE "Welcome our vpn server"
@@ -77,21 +78,38 @@ typedef unsigned char u_char;
  * if its not for at this time but should we'll make a proccess using that users credentials.
 */
 
-void new_user_acc(){
+char* get_line_from_file(const char *filename, int line_number) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        perror("Error opening file");
+        return NULL;
+    }
+
+    static char line[BUFF_M];
+    int current_line = 0;
+
+    while (fgets(line, sizeof(line), file)) {
+        current_line++;
+        if (current_line == line_number) {
+            fclose(file);
+            // Remove newline character if present
+            size_t len = strlen(line);
+            if (len > 0 && line[len - 1] == '\n') {
+                line[len - 1] = '\0';
+            }
+            return line;
+        }
+    }
+
+    fclose(file);
+    return NULL; // Line number not found
+}
+
+void create_new_account(char *name,char *password){
     u_char key[crypto_secretbox_KEYBYTES];
     u_char nonce[crypto_secretbox_NONCEBYTES];
     u_char enc_id[128];
     u_char decrypted[128];
-
-    char name[BUFF_M];
-    char password[8];
-
-    printf("%s%sEnter Your Name :%s\n",BOLD,BLUE,RESET);//Get name from the user.
-    scanf("%s\n",name);
-
-    printf("%s%sEnter Password  :%s\n",BOLD,BLUE,RESET);
-    scanf("%s\n",password);
-
     /**
      * the <sodium.h> have ability to another encryption function.
     */
@@ -403,7 +421,7 @@ void vpn_server(char *s_name){
     inet_ntop(AF_INET,&dst_addr.sin_addr,dst_ip,INET_ADDRSTRLEN);
 
     int client_port = ntohs(dst_addr.sin_port);
-    printf("The client %s connect with port %d\n",dst_ip,client_port); 
+    printf("\nThe client %s connect with port %d\n",dst_ip,client_port); 
 
     //Make new object for ssl
     ssl_init = SSL_new(ctx);
@@ -445,6 +463,7 @@ void vpn_server(char *s_name){
 int main(int argc,char *argv[]){
     //We have 8 argumnets totally.
     pcap_t *interface;
+
     if(argc > 8 || argc < 0){
         print_help(argv[0]);
     } else if (strcmp("-h",argv[1]) == 0 || strcmp("--help",argv[1]) == 0){
@@ -475,9 +494,15 @@ int main(int argc,char *argv[]){
         } else {
             print_help(argv[0]);
         }
+    } else if(strcmp(argv[1],"-nu") == 0 || strcmp(argv[1],"--newUser") == 0){
+        // create_new_account("hello","world34");
     }
+
 }
 
 /**
- * TODO : icmp pakcet capture have pending and change user ip to vpn ip.and do next other things
+ * TODO : 
+ * 1.To make ensure the crypto function.
+ * 2.Make as icmp capture.
+ * 3.Create SQL Environment.
 */
