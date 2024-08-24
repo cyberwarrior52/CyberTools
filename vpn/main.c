@@ -2,7 +2,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sodium.h>
 #include <arpa/inet.h>
 #include <pcap.h>
 #include <netinet/tcp.h>
@@ -13,7 +12,19 @@
 #include <openssl/evp.h>
 #include <mysql/mysql.h>
 
+int sql_connection(const char *server,const char *username,const char *password,const char *db_name);
+
+//its global variable for access anywhere.
+MYSQL *connection = NULL;//for connection
+
 typedef unsigned char u_char;
+
+typedef struct {
+    u_char *host;         //server name for database
+    u_char *username;     //username for database
+    u_char *password;     //password for database
+    u_char *DBname;       //Database name
+}database_t;
 
 //Define color macros
 #define RESET       "\033[0m" //if any color aquired it reset and disapper after.
@@ -38,6 +49,8 @@ typedef unsigned char u_char;
 //Define macros
 #define WELCOME_MESSAGE "Welcome our vpn server"
 
+#define DB_FILE_NAME "db.txt"
+
 #define SEC_KEY "helloworld" //thus, stands for secure key and thier value is "helloworld"
 
 #define R_WORD "hw"
@@ -55,6 +68,7 @@ typedef unsigned char u_char;
 */
 #define N_LOGIN 20 //check this for no login this account
 #define VALID 0 //check the packets are valid
+
 #define N_VALID 1 //check the packets are invalid
 #define SESSION_TIMEOUT 86400 //session will timout around on oneday
 
@@ -77,6 +91,10 @@ typedef unsigned char u_char;
  * 
  * if its not for at this time but should we'll make a proccess using that users credentials.
 */
+
+void clearscn(){
+    system("clear");
+}
 
 char* get_line_from_file(const char *filename, int line_number) {
     FILE *file = fopen(filename, "r");
@@ -105,25 +123,25 @@ char* get_line_from_file(const char *filename, int line_number) {
     return NULL; // Line number not found
 }
 
-void create_new_account(char *name,char *password){
-    u_char key[crypto_secretbox_KEYBYTES];
-    u_char nonce[crypto_secretbox_NONCEBYTES];
-    u_char enc_id[128];
-    u_char decrypted[128];
-    /**
-     * the <sodium.h> have ability to another encryption function.
-    */
-    if(sodium_init() < 0){
-        perror("sodium init");//initialize the sodium function
-        exit(EXIT_FAILURE);
+int create_new_account(char *name,char *password){
+    char query[256];
+    sprintf(query, "INSERT INTO vpn (username, password) VALUES ('%s', '%s')", name, password);
+
+    //init the connection of sql.
+
+                     //get the server name of database    //get username of the database
+    if(sql_connection(get_line_from_file(DB_FILE_NAME,1),get_line_from_file(DB_FILE_NAME,2),
+    //get password of the database      //get database name
+    get_line_from_file(DB_FILE_NAME,3),get_line_from_file(DB_FILE_NAME,4)) == 0){
+        //to generate query
+        if(mysql_query(connection,query) == 0){
+            return 0;
+        } else {
+            return 1;
+        }
+    } else {
+        return 1;
     }
-
-    //generates randome things
-    randombytes_buf(key,sizeof(key));
-    randombytes_buf(nonce,sizeof(nonce));
-
-    crypto_secretbox_easy(enc_id,strcat(name,password),sizeof(strcat(name,password)),nonce,key);
-    //it encryptes the name and password and produce const output that is encrypted values.
 }
 
 /**
@@ -141,18 +159,51 @@ void create_new_account(char *name,char *password){
  *  3.To delete the data
 */
 
-//To connect to the database
+void set_db_dets(database_t *db_dets,const char *host,const char *u_name,const char *pass,const char *db_name){
 
-int sql_connection(const char *server,const char *username,const char *password,const char *db_name){
-    MYSQL *connection;//for connection
-    
+    if(!db_dets) return;
+    //Initialize all credentials variables.
+    db_dets->DBname = malloc(strlen(db_name)+1);
+    db_dets->host = malloc(strlen(host)+1);
+    db_dets->username = malloc(strlen(u_name)+1);
+    db_dets->password = malloc(strlen(pass)+1);
+
+    if(db_dets->DBname != NULL){
+        strcpy(db_dets->DBname,db_name);
+    } 
+
+    if(db_dets->host != NULL){
+        strcpy(db_dets->host,host);
+    }
+
+    if(db_dets->username != NULL){
+        strcpy(db_dets->username,u_name);
+    }
+
+    if(db_dets->password != NULL){
+        strcpy(db_dets->password,pass);
+    }
+
+}
+
+u_char *host_name(database_t *h_name){
+    if(!h_name || !h_name->host) return NULL;
+    return h_name->host;
+}
+
+//////////////////////////////////To connect to the database///////////////////////////////////////////////
+int sql_connection(const char *server,const char *username,const char *password,const char *db_name){ 
     connection = mysql_init(connection);
 
     if(!mysql_real_connect(connection,server,username,password,db_name,0,NULL,0)){
         perror("Database connection:");
+        return 1;
         exit(EXIT_FAILURE);
+    } else {
+        return 0;
     }
 }
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //To get encrypted value from this.
 void get_datas_enc(const char *data, int len) {
@@ -461,10 +512,18 @@ void vpn_server(char *s_name){
 
 
 int main(int argc,char *argv[]){
+    /////////////initializer/////////////
+
     //We have 8 argumnets totally.
     pcap_t *interface;
+    database_t dets;
+    u_char *host = host_name(&dets);
+    //set the credentials from db.txt
+    set_db_dets(&dets,"hello",get_line_from_file(DB_FILE_NAME,2),
+    get_line_from_file(DB_FILE_NAME,3),get_line_from_file(DB_FILE_NAME,4));
+    //////////////////////////////////////
 
-    if(argc > 8 || argc < 0){
+    if(argc > 4 || argc < 0){
         print_help(argv[0]);
     } else if (strcmp("-h",argv[1]) == 0 || strcmp("--help",argv[1]) == 0){
         print_help(argv[0]);
@@ -495,10 +554,27 @@ int main(int argc,char *argv[]){
             print_help(argv[0]);
         }
     } else if(strcmp(argv[1],"-nu") == 0 || strcmp(argv[1],"--newUser") == 0){
-        // create_new_account("hello","world34");
-    }
+        clearscn();
+        char username[BUFF_M];
+        printf(RED BOLD"create your name :"RESET);
+        scanf("%s",username);
 
+        char password[BUFF_M];
+        printf(RED BOLD"create your name :"RESET);
+        scanf("%s",password);
+
+        int send_to_DB = create_new_account(username,password);
+
+        if(send_to_DB == 0){
+            clearscn();
+            printf(GREEN BOLD"signup successfully\n"RESET);
+        } else {
+            clearscn();
+            printf(RED BOLD"signup failed!\n"RESET);
+        }
+    }
 }
+
 
 /**
  * TODO : 
