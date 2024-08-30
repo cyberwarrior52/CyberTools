@@ -11,66 +11,10 @@
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <mysql/mysql.h>
+#include <proto.h>
 
-int sql_connection(const char *server,const char *username,const char *password,const char *db_name);
-
-//its global variable for access anywhere.
-MYSQL *connection = NULL;//for connection
-
-typedef unsigned char u_char;
-
-typedef struct {
-    u_char *host;         //server name for database
-    u_char *username;     //username for database
-    u_char *password;     //password for database
-    u_char *DBname;       //Database name
-}database_t;
-
-//Define color macros
-#define RESET       "\033[0m" //if any color aquired it reset and disapper after.
-#define BOLD        "\033[1m"
-#define UNDERLINE   "\033[4m"
-#define REVERSED    "\033[7m"
-
-#define BLACK       "\033[30m"
-#define RED         "\033[31m" 
-#define GREEN       "\033[32m"
-#define YELLOW      "\033[33m"
-#define BLUE        "\033[34m"
-#define MAGENTA     "\033[35m"
-#define CYAN        "\033[36m"
-#define WHITE       "\033[37m"
-
-//To get length of encryption
-#define MAX_NAME_LENGTH 64
-#define MAX_PASSWORD_LENGTH 64
-#define MAX_ENCRYPTED_LENGTH (crypto_secretbox_MACBYTES + MAX_NAME_LENGTH + MAX_PASSWORD_LENGTH)
-
-//Define macros
-#define WELCOME_MESSAGE "Welcome our vpn server"
-
-#define DB_FILE_NAME "db.txt"
-
-#define SEC_KEY "helloworld" //thus, stands for secure key and thier value is "helloworld"
-
-#define R_WORD "hw"
-
-#define BUFF_M 100//it stands for macro buffer 
-
-#define SOCK_PORT 6666
-
-#define ENCPT_BUFF 32
-
-#define LOGIN 10 //check login or not.if logged in it on.
-/**
- * N_LOGIN : it checks the session will timout or not and the username and passwords
- * are valid
-*/
-#define N_LOGIN 20 //check this for no login this account
-#define VALID 0 //check the packets are valid
-
-#define N_VALID 1 //check the packets are invalid
-#define SESSION_TIMEOUT 86400 //session will timout around on oneday
+//This global variable for create sql environment.
+MYSQL *connection;
 
 /**
  * Make a vpn to capture network packets via tcp/ip from the network interface
@@ -96,53 +40,82 @@ void clearscn(){
     system("clear");
 }
 
-char* get_line_from_file(const char *filename, int line_number) {
-    FILE *file = fopen(filename, "r");
-    if (file == NULL) {
-        perror("Error opening file");
-        return NULL;
-    }
+/**
+ * the log_account() has two arguments that's name,password to find the user already create a account or not.
+ * if the user credentials are match in this name and password, the user have a account in this vpn account.
+*/
 
-    static char line[BUFF_M];
-    int current_line = 0;
+void log_account(char *u_name, char *u_password){
+    connection = mysql_init(NULL); // establish a database connection for fetch data for checking.
 
-    while (fgets(line, sizeof(line), file)) {
-        current_line++;
-        if (current_line == line_number) {
-            fclose(file);
-            // Remove newline character if present
-            size_t len = strlen(line);
-            if (len > 0 && line[len - 1] == '\n') {
-                line[len - 1] = '\0';
-            }
-            return line;
-        }
-    }
+    // Initialization of SQL database server.
+    if (connection == NULL)  
+        fprintf(stderr,"%s",mysql_error(connection));
 
-    fclose(file);
-    return NULL; // Line number not found
-}
+    // Get database connection parameters from file
+    const char *db_server = "mysql.selfmade.ninja";
+    const char *db_user = "mohamed";
+    const char *db_password = "mohamedhathim123@";
+    const char *database_name = "mohamed_123456";
 
-int create_new_account(char *name,char *password){
-    char query[256];
-    sprintf(query, "INSERT INTO vpn (username, password) VALUES ('%s', '%s')", name, password);
-
-    //init the connection of sql.
-
-                     //get the server name of database    //get username of the database
-    if(sql_connection(get_line_from_file(DB_FILE_NAME,1),get_line_from_file(DB_FILE_NAME,2),
-    //get password of the database      //get database name
-    get_line_from_file(DB_FILE_NAME,3),get_line_from_file(DB_FILE_NAME,4)) == 0){
-        //to generate query
-        if(mysql_query(connection,query) == 0){
-            return 0;
-        } else {
-            return 1;
-        }
+    // Connect to the database
+    if (mysql_real_connect(connection, db_server, db_user, db_password, database_name, 0, NULL, 0) == NULL) {
+        fprintf(stderr, "Connection failed: %s\n", mysql_error(connection));
+        mysql_close(connection);
+        exit(EXIT_FAILURE);
     } else {
-        return 1;
+        printf(GREEN BOLD"DB server status : SUCCESS\n");
     }
+    // Prepare query string safely
+    char query[256];
+    strcpy(query,"SELECT name, pass FROM vpn;");
+
+    // Execute the query
+    if (mysql_query(connection, query) != 0) {
+        fprintf(stderr, "Query failed: %s\n", mysql_error(connection));
+    }
+
+    // Close the connection and return success
+    mysql_close(connection);
 }
+
+void create_new_account(char *u_name, char *u_password) {
+    connection = mysql_init(NULL); // establish a database connection.
+
+    // Initialization of SQL database server.
+    if (connection == NULL)  
+        fprintf(stderr,"%s",mysql_error(connection));
+
+    // Get database connection parameters from file
+    const char *db_server = "mysql.selfmade.ninja";
+    const char *db_user = "mohamed";
+    const char *db_password = "mohamedhathim123@";
+    const char *database_name = "mohamed_123456";
+
+    // Connect to the database
+    if (mysql_real_connect(connection, db_server, db_user, db_password, database_name, 0, NULL, 0) == NULL) {
+        fprintf(stderr, "Connection failed: %s\n", mysql_error(connection));
+        mysql_close(connection);
+        exit(EXIT_FAILURE);
+    } else {
+        printf(GREEN BOLD"DB server status : SUCCESS\n");
+    }
+
+    // Prepare query string safely
+    char query[256];
+    snprintf(query, sizeof(query), "INSERT INTO vpn (name, pass) VALUES ('%s', '%s')", u_name, u_password);
+
+    // Execute the query
+    if (mysql_query(connection, query) != 0) {
+        fprintf(stderr, "Query failed: %s\n", mysql_error(connection));
+    } else {
+        printf(GREEN BOLD"Account create status : SUCCESS\n");
+    }
+
+    // Close the connection and return success
+    mysql_close(connection);
+}
+
 
 /**
  *                                  DOCS FOR EXISTING USERS
@@ -158,52 +131,6 @@ int create_new_account(char *name,char *password){
  *  2.To connect to the database
  *  3.To delete the data
 */
-
-void set_db_dets(database_t *db_dets,const char *host,const char *u_name,const char *pass,const char *db_name){
-
-    if(!db_dets) return;
-    //Initialize all credentials variables.
-    db_dets->DBname = malloc(strlen(db_name)+1);
-    db_dets->host = malloc(strlen(host)+1);
-    db_dets->username = malloc(strlen(u_name)+1);
-    db_dets->password = malloc(strlen(pass)+1);
-
-    if(db_dets->DBname != NULL){
-        strcpy(db_dets->DBname,db_name);
-    } 
-
-    if(db_dets->host != NULL){
-        strcpy(db_dets->host,host);
-    }
-
-    if(db_dets->username != NULL){
-        strcpy(db_dets->username,u_name);
-    }
-
-    if(db_dets->password != NULL){
-        strcpy(db_dets->password,pass);
-    }
-
-}
-
-u_char *host_name(database_t *h_name){
-    if(!h_name || !h_name->host) return NULL;
-    return h_name->host;
-}
-
-//////////////////////////////////To connect to the database///////////////////////////////////////////////
-int sql_connection(const char *server,const char *username,const char *password,const char *db_name){ 
-    connection = mysql_init(connection);
-
-    if(!mysql_real_connect(connection,server,username,password,db_name,0,NULL,0)){
-        perror("Database connection:");
-        return 1;
-        exit(EXIT_FAILURE);
-    } else {
-        return 0;
-    }
-}
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //To get encrypted value from this.
 void get_datas_enc(const char *data, int len) {
@@ -516,12 +443,6 @@ int main(int argc,char *argv[]){
 
     //We have 8 argumnets totally.
     pcap_t *interface;
-    database_t dets;
-    u_char *host = host_name(&dets);
-    //set the credentials from db.txt
-    set_db_dets(&dets,"hello",get_line_from_file(DB_FILE_NAME,2),
-    get_line_from_file(DB_FILE_NAME,3),get_line_from_file(DB_FILE_NAME,4));
-    //////////////////////////////////////
 
     if(argc > 4 || argc < 0){
         print_help(argv[0]);
@@ -556,29 +477,23 @@ int main(int argc,char *argv[]){
     } else if(strcmp(argv[1],"-nu") == 0 || strcmp(argv[1],"--newUser") == 0){
         clearscn();
         char username[BUFF_M];
-        printf(RED BOLD"create your name :"RESET);
+        printf(RED BOLD"create your name : "RESET);
         scanf("%s",username);
 
         char password[BUFF_M];
-        printf(RED BOLD"create your name :"RESET);
+        printf(RED BOLD"create your password : "RESET);
         scanf("%s",password);
 
-        int send_to_DB = create_new_account(username,password);
-
-        if(send_to_DB == 0){
-            clearscn();
-            printf(GREEN BOLD"signup successfully\n"RESET);
-        } else {
-            clearscn();
-            printf(RED BOLD"signup failed!\n"RESET);
-        }
+        //this create_new_account function init the all sql environment and it tells if any error aquired.
+        create_new_account(username,password);
     }
 }
 
 
 /**
  * TODO : 
- * 1.To make ensure the crypto function.
- * 2.Make as icmp capture.
- * 3.Create SQL Environment.
+ * 1.To make ensure the login function
+ * 2.make the session management system
+ * 3.make to capture the icmp packet:
+ *      # we creates checksum for capture this packets.
 */
