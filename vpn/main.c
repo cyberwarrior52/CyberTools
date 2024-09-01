@@ -11,7 +11,7 @@
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <mysql/mysql.h>
-#include <proto.h>
+#include "protos.h"
 
 //This global variable for create sql environment.
 MYSQL *connection;
@@ -45,8 +45,10 @@ void clearscn(){
  * if the user credentials are match in this name and password, the user have a account in this vpn account.
 */
 
-void log_account(char *u_name, char *u_password){
+boolean log_account(char *u_name, char *u_password){
     connection = mysql_init(NULL); // establish a database connection for fetch data for checking.
+    MYSQL_RES *result;
+    MYSQL_ROW fetch_row;
 
     // Initialization of SQL database server.
     if (connection == NULL)  
@@ -64,7 +66,7 @@ void log_account(char *u_name, char *u_password){
         mysql_close(connection);
         exit(EXIT_FAILURE);
     } else {
-        printf(GREEN BOLD"DB server status : SUCCESS\n");
+        printf(GREEN BOLD"DB server status : SUCCESS\n"RESET);
     }
     // Prepare query string safely
     char query[256];
@@ -73,6 +75,18 @@ void log_account(char *u_name, char *u_password){
     // Execute the query
     if (mysql_query(connection, query) != 0) {
         fprintf(stderr, "Query failed: %s\n", mysql_error(connection));
+    }
+
+    result = mysql_store_result(connection);
+
+    while((fetch_row = mysql_fetch_row(result)) != NULL){
+        //check the logged username exist or not.
+        if(strcmp(u_name,fetch_row[0]) == 0 && strcmp(u_password,fetch_row[1]) == 0)
+            // printf("the user account exist\n");
+            return true;
+        else
+            // printf("does not exist\n");
+            return false;
     }
 
     // Close the connection and return success
@@ -437,6 +451,10 @@ void vpn_server(char *s_name){
     SSL_CTX_free(ctx);
 }
 
+void Error(char *Err){
+    printf(BOLD RED"error :%s%s%s%s\n",RESET,WHITE BOLD,Err,RESET);
+    return; //It suddenly exist,if it tells error.
+}
 
 int main(int argc,char *argv[]){
     /////////////initializer/////////////
@@ -475,6 +493,11 @@ int main(int argc,char *argv[]){
             print_help(argv[0]);
         }
     } else if(strcmp(argv[1],"-nu") == 0 || strcmp(argv[1],"--newUser") == 0){
+        /**
+         * The username and password to create account
+         * into database server if its created it show
+         * success message otherwise it show failed message.
+        */
         clearscn();
         char username[BUFF_M];
         printf(RED BOLD"create your name : "RESET);
@@ -484,8 +507,45 @@ int main(int argc,char *argv[]){
         printf(RED BOLD"create your password : "RESET);
         scanf("%s",password);
 
-        //this create_new_account function init the all sql environment and it tells if any error aquired.
-        create_new_account(username,password);
+        if(strcmp(username,"") == 0 || strcmp(password,"") == 0)
+            Error("The use credentials not found.");
+        else
+            //this create_new_account function init the all sql environment and it tells if any error aquired.
+            create_new_account(username,password);
+            
+    } else if(strcmp(argv[1],"-eu") == 0 || strcmp(argv[1],"--existUser") == 0){
+        clearscn();
+        printf("\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-\n");
+        printf(YELLOW"\t\t\t\tGive your user credentials to continue\n"RESET);
+        printf("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-\n");
+
+        char f_username[BUFF_M],f_password[BUFF_M];//f_username stands for fetch username
+
+        printf(BOLD MAGENTA"Enter your username : "RESET);
+        scanf("%s",f_username);
+
+        printf(BOLD MAGENTA"Enter your password : "RESET);
+        scanf("%s",f_password);
+
+        if(strcmp(f_username,"") == 0 || strcmp(f_password,"") == 0){
+            Error("The user credentials not found.");
+        } else {
+            boolean user_log_result = log_account(f_username,f_password);
+            switch (user_log_result)
+            {
+            case true:
+                printf("We are have account\n");
+                exit(EXIT_SUCCESS);
+            
+            case false:
+                printf("We are not user\n");
+                exit(EXIT_FAILURE);
+
+            default:
+                Error("Nothing happend");
+                break;
+            }
+        }
     }
 }
 
