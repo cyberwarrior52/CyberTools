@@ -45,7 +45,7 @@ void clearscn(){
  * if the user credentials are match in this name and password, the user have a account in this vpn account.
 */
 
-boolean log_account(char *u_name, char *u_password){
+int log_account(char *u_name, char *u_password){
     connection = mysql_init(NULL); // establish a database connection for fetch data for checking.
     MYSQL_RES *result;
     MYSQL_ROW fetch_row;
@@ -83,14 +83,31 @@ boolean log_account(char *u_name, char *u_password){
         //check the logged username exist or not.
         if(strcmp(u_name,fetch_row[0]) == 0 && strcmp(u_password,fetch_row[1]) == 0)
             // printf("the user account exist\n");
-            return true;
+            return LOGIN;
         else
             // printf("does not exist\n");
-            return false;
+            return N_LOGIN;
     }
 
     // Close the connection and return success
     mysql_close(connection);
+}
+
+void account_creator(){
+    clearscn();
+    char username[BUFF_M];
+    printf(RED BOLD"create your name : "RESET);
+    scanf("%s",username);
+
+    char password[BUFF_M];
+    printf(RED BOLD"create your password : "RESET);
+    scanf("%s",password);
+
+    if(strcmp(username,"") == 0 || strcmp(password,"") == 0)
+        Error("The use credentials not found.");
+    else
+        //this create_new_account function init the all sql environment and it tells if any error aquired.
+        create_new_account(username,password);
 }
 
 void create_new_account(char *u_name, char *u_password) {
@@ -462,98 +479,104 @@ int main(int argc,char *argv[]){
     //We have 8 argumnets totally.
     pcap_t *interface;
 
-    if(argc > 4 || argc < 0){
-        print_help(argv[0]);
-    } else if (strcmp("-h",argv[1]) == 0 || strcmp("--help",argv[1]) == 0){
-        print_help(argv[0]);
-    } else if (strcmp("-i",argv[1]) == 0 || strcmp("--interface",argv[1]) == 0){
-        //check the user enter interface name or not.
-        if(strcmp(argv[2],"") != 0){
-            if(strcmp(argv[3],"-pt") == 0 || strcmp(argv[3],"--packetname") == 0){
-                if(strcmp(argv[4],"tcp") == 0 || strcmp(argv[4],"icmp") == 0){
-                    init_pack(interface,argv[2],argv[4]);
+    clearscn();
+    char username[BUFF_M];
+    printf(RED BOLD"Enter your name : "RESET);
+    scanf("%s",username);
+
+    char password[BUFF_M];
+    printf(RED BOLD"Enter your password : "RESET);
+    scanf("%s",password);
+
+    int is_logged = log_account(username,password);
+
+    if(is_logged == LOGIN){
+        if(argc > 4 || argc < 0){
+            print_help(argv[0]);
+        } else if (strcmp("-h",argv[1]) == 0 || strcmp("--help",argv[1]) == 0){
+            print_help(argv[0]);
+        } else if (strcmp("-i",argv[1]) == 0 || strcmp("--interface",argv[1]) == 0){
+            //check the user enter interface name or not.
+            if(strcmp(argv[2],"") != 0){
+                if(strcmp(argv[3],"-pt") == 0 || strcmp(argv[3],"--packetname") == 0){
+                    if(strcmp(argv[4],"tcp") == 0 || strcmp(argv[4],"icmp") == 0){
+                        init_pack(interface,argv[2],argv[4]);
+                    } else {
+                        print_help(argv[0]);
+                    }
                 } else {
                     print_help(argv[0]);
                 }
             } else {
                 print_help(argv[0]);
             }
-        } else {
-            print_help(argv[0]);
-        }
-    } else if(strcmp("-v",argv[1]) == 0 || strcmp("--vpn",argv[1]) == 0){
-        /**
-         * check the vpn enter name of the vpn server and starts.
-        */
-        if(strcmp(argv[2],"") == 0){
-            print_help(argv[0]);
-        } else if(strcmp(argv[3],"-s") == 0 || strcmp(argv[3],"--start") == 0){
-            vpn_server(argv[2]);
-        } else {
-            print_help(argv[0]);
+        } else if(strcmp("-v",argv[1]) == 0 || strcmp("--vpn",argv[1]) == 0){
+            /**
+             * check the vpn enter name of the vpn server and starts.
+            */
+            if(strcmp(argv[2],"") == 0){
+                print_help(argv[0]);
+            } else if(strcmp(argv[3],"-s") == 0 || strcmp(argv[3],"--start") == 0){
+                vpn_server(argv[2]);
+            } else {
+                print_help(argv[0]);
+            }
+        } else if(strcmp(argv[1],"-nu") == 0 || strcmp(argv[1],"--newUser") == 0){
+            /**
+             * The username and password to create account
+             * into database server if its created it show
+             * success message otherwise it show failed message.
+            */
+            clearscn();
+            char username[BUFF_M];
+            printf(RED BOLD"create your name : "RESET);
+            scanf("%s",username);
+
+            char password[BUFF_M];
+            printf(RED BOLD"create your password : "RESET);
+            scanf("%s",password);
+
+            if(strcmp(username,"") == 0 || strcmp(password,"") == 0)
+                Error("The use credentials not found.");
+            else
+                //this create_new_account function init the all sql environment and it tells if any error aquired.
+                create_new_account(username,password);
+                
+        } else if(strcmp(argv[1],"-eu") == 0 || strcmp(argv[1],"--existUser") == 0){
+            
         }
     } else if(strcmp(argv[1],"-nu") == 0 || strcmp(argv[1],"--newUser") == 0){
-        /**
-         * The username and password to create account
-         * into database server if its created it show
-         * success message otherwise it show failed message.
-        */
-        clearscn();
-        char username[BUFF_M];
-        printf(RED BOLD"create your name : "RESET);
-        scanf("%s",username);
+            /**
+             * The username and password to create account
+             * into database server if its created it show
+             * success message otherwise it show failed message.
+            */
+            clearscn();
+            char username[BUFF_M];
+            printf(RED BOLD"create your name : "RESET);
+            scanf("%s",username);
 
-        char password[BUFF_M];
-        printf(RED BOLD"create your password : "RESET);
-        scanf("%s",password);
+            char password[BUFF_M];
+            printf(RED BOLD"create your password : "RESET);
+            scanf("%s",password);
 
-        if(strcmp(username,"") == 0 || strcmp(password,"") == 0)
-            Error("The use credentials not found.");
-        else
-            //this create_new_account function init the all sql environment and it tells if any error aquired.
-            create_new_account(username,password);
-            
-    } else if(strcmp(argv[1],"-eu") == 0 || strcmp(argv[1],"--existUser") == 0){
-        clearscn();
-        printf("\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-\n");
-        printf(YELLOW"\t\t\t\tGive your user credentials to continue\n"RESET);
-        printf("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-\n");
-
-        char f_username[BUFF_M],f_password[BUFF_M];//f_username stands for fetch username
-
-        printf(BOLD MAGENTA"Enter your username : "RESET);
-        scanf("%s",f_username);
-
-        printf(BOLD MAGENTA"Enter your password : "RESET);
-        scanf("%s",f_password);
-
-        if(strcmp(f_username,"") == 0 || strcmp(f_password,"") == 0){
-            Error("The user credentials not found.");
-        } else {
-            boolean user_log_result = log_account(f_username,f_password);
-            switch (user_log_result)
-            {
-            case true:
-                printf("We are have account\n");
-                exit(EXIT_SUCCESS);
-            
-            case false:
-                printf("We are not user\n");
-                exit(EXIT_FAILURE);
-
-            default:
-                Error("Nothing happend");
-                break;
-            }
-        }
+            if(strcmp(username,"") == 0 || strcmp(password,"") == 0)
+                Error("The use credentials not found.");
+            else
+                //this create_new_account function init the all sql environment and it tells if any error aquired.
+                create_new_account(username,password);
+                
+    } else {
+        Error("Sorry, because of you don\'t have an account of this vpn server.");
+        printf("You should run \"%ssudo <usage> -nu [or] sudo <usage> --newUser%s to create account in this vpn server.\n",MAGENTA,RESET);
+        exit(EXIT_FAILURE);
     }
 }
 
-
 /**
  * TODO : 
- * 1.To make ensure the login function
- * 2.make the session management system
+ * 1.To make ensure the login function.
+ * 2.To make password has should been secure.
  * 3.make to capture the icmp packet:
  *      # we creates checksum for capture this packets.
 */
