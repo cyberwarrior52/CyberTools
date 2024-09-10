@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <pcap.h>
+#include <termios.h>
 #include <netinet/tcp.h>
 #include <netinet/ip.h>
 #include <openssl/aes.h>
@@ -55,13 +56,13 @@ int log_account(char *u_name, char *u_password){
         fprintf(stderr,"%s",mysql_error(connection));
 
     // Get database connection parameters from file
-    const char *db_server = "mysql.selfmade.ninja";
-    const char *db_user = "mohamed";
-    const char *db_password = "mohamedhathim123@";
-    const char *database_name = "mohamed_123456";
+    const char *db_server = "localhost";
+    const char *db_user = "root";
+    const char *db_password = "mohamed";
+    const char *database_name = "vpn";
 
     // Connect to the database
-    if (mysql_real_connect(connection, db_server, db_user, db_password, database_name, 0, NULL, 0) == NULL) {
+    if (mysql_real_connect(connection, db_server, db_user, db_password, database_name, DB_PORT, NULL, 0) == NULL) {
         fprintf(stderr, "Connection failed: %s\n", mysql_error(connection));
         mysql_close(connection);
         exit(EXIT_FAILURE);
@@ -70,7 +71,7 @@ int log_account(char *u_name, char *u_password){
     }
     // Prepare query string safely
     char query[256];
-    strcpy(query,"SELECT name, pass FROM vpn;");
+    strcpy(query,"SELECT username, password FROM vpn;");
 
     // Execute the query
     if (mysql_query(connection, query) != 0) {
@@ -91,6 +92,14 @@ int log_account(char *u_name, char *u_password){
 
     // Close the connection and return success
     mysql_close(connection);
+}
+
+//Disable password echo : if we type the password it should be gather and can't echo to the user.
+void Disable_pass_echo(){
+    struct termios dis_pass_echo;
+    tcgetattr(STDIN_FILENO,&dis_pass_echo);
+    dis_pass_echo.c_lflag &= ~ECHO;
+    //To make disable and enable echo password system.
 }
 
 void account_creator(){
@@ -118,13 +127,13 @@ void create_new_account(char *u_name, char *u_password) {
         fprintf(stderr,"%s",mysql_error(connection));
 
     // Get database connection parameters from file
-    const char *db_server = "mysql.selfmade.ninja";
-    const char *db_user = "mohamed";
-    const char *db_password = "mohamedhathim123@";
-    const char *database_name = "mohamed_123456";
+    const char *db_server = "localhost";
+    const char *db_user = "root";
+    const char *db_password = "mohamed";
+    const char *database_name = "vpn";
 
     // Connect to the database
-    if (mysql_real_connect(connection, db_server, db_user, db_password, database_name, 0, NULL, 0) == NULL) {
+    if (mysql_real_connect(connection, db_server, db_user, db_password, database_name, DB_PORT, NULL, 0) == NULL) {
         fprintf(stderr, "Connection failed: %s\n", mysql_error(connection));
         mysql_close(connection);
         exit(EXIT_FAILURE);
@@ -134,7 +143,7 @@ void create_new_account(char *u_name, char *u_password) {
 
     // Prepare query string safely
     char query[256];
-    snprintf(query, sizeof(query), "INSERT INTO vpn (name, pass) VALUES ('%s', '%s')", u_name, u_password);
+    snprintf(query, sizeof(query), "INSERT INTO vpn (username, password) VALUES ('%s', '%s')", u_name, u_password);
 
     // Execute the query
     if (mysql_query(connection, query) != 0) {
@@ -469,107 +478,72 @@ void vpn_server(char *s_name){
 }
 
 void Error(char *Err){
-    printf(BOLD RED"error :%s%s%s%s\n",RESET,WHITE BOLD,Err,RESET);
+    printf(BOLD RED"error : %s%s%s.%s\n",RESET,WHITE BOLD,Err,RESET);
     return; //It suddenly exist,if it tells error.
 }
 
-int main(int argc,char *argv[]){
+void main_interface(){
+    printf("\t\t\t\t\tInterface to vpn server\n\n\n");
+    printf("\t\t\t%s1.Login\t\t\t\t\t\t2.Signup%s\n\n\n",BOLD,RESET);
+}
+
+int main(){
     /////////////initializer/////////////
 
-    //We have 8 argumnets totally.
+    int choice;
     pcap_t *interface;
+    char *user_choice;
 
     clearscn();
-    char username[BUFF_M];
-    printf(RED BOLD"Enter your name : "RESET);
-    scanf("%s",username);
+    main_interface();
+    printf("Enter valid choice to continue : ");
+    scanf("%d",&choice);
 
-    char password[BUFF_M];
-    printf(RED BOLD"Enter your password : "RESET);
-    scanf("%s",password);
+    if(choice > 2)  Error("your choice apart from valid choices");
+    else if (choice == 1){ 
+        clearscn();
+        char username[BUFF_M];
+        printf(RED BOLD"Enter your name : "RESET);
+        scanf("%s",username);
 
-    int is_logged = log_account(username,password);
+        char password[BUFF_M];
+        printf(RED BOLD"Enter your password : "RESET);
+        scanf("%s",password);
 
-    if(is_logged == LOGIN){
-        if(argc > 4 || argc < 0){
-            print_help(argv[0]);
-        } else if (strcmp("-h",argv[1]) == 0 || strcmp("--help",argv[1]) == 0){
-            print_help(argv[0]);
-        } else if (strcmp("-i",argv[1]) == 0 || strcmp("--interface",argv[1]) == 0){
-            //check the user enter interface name or not.
-            if(strcmp(argv[2],"") != 0){
-                if(strcmp(argv[3],"-pt") == 0 || strcmp(argv[3],"--packetname") == 0){
-                    if(strcmp(argv[4],"tcp") == 0 || strcmp(argv[4],"icmp") == 0){
-                        init_pack(interface,argv[2],argv[4]);
-                    } else {
-                        print_help(argv[0]);
-                    }
-                } else {
-                    print_help(argv[0]);
+        int is_logged = log_account(username,password);
+    
+        if(is_logged == LOGIN){
+            //If user have a account in vpn server.it allow the user to use this server.
+            printf("========================================================================================\n");
+            printf("\t\t\t\t\tWelcome to our vpn server\n");
+            printf("========================================================================================\n");
+            printf("                                                                                          \n");
+            printf("                                ██╗░░░██╗██████╗░███╗░░██╗\n");
+            printf("                                ██║░░░██║██╔══██╗████╗░██║\n");
+            printf("                                ╚██╗░██╔╝██████╔╝██╔██╗██║\n");
+            printf("                                ░╚████╔╝░██╔═══╝░██║╚████║\n");
+            printf("                                ░░╚██╔╝░░██║░░░░░██║░╚███║\n");
+            printf("                                ░░░╚═╝░░░╚═╝░░░░░╚═╝░░╚══╝\n");
+            printf("========================================================================================\n\n");
+            printf(GREEN BOLD"Now on the vpn interface...\n\n"RESET);
+            sleep(5);
+            clearscn();
+
+            //Now get input from users to accomplish furthur tasks.
+            while(1){
+                printf(GREEN BOLD"%s > "RESET,username);
+                scanf("%s",user_choice);
+
+                if(strcmp(user_choice,"help") == 0){
+                    printf("Jeichitom maara");break;
                 }
-            } else {
-                print_help(argv[0]);
             }
-        } else if(strcmp("-v",argv[1]) == 0 || strcmp("--vpn",argv[1]) == 0){
-            /**
-             * check the vpn enter name of the vpn server and starts.
-            */
-            if(strcmp(argv[2],"") == 0){
-                print_help(argv[0]);
-            } else if(strcmp(argv[3],"-s") == 0 || strcmp(argv[3],"--start") == 0){
-                vpn_server(argv[2]);
-            } else {
-                print_help(argv[0]);
-            }
-        } else if(strcmp(argv[1],"-nu") == 0 || strcmp(argv[1],"--newUser") == 0){
-            /**
-             * The username and password to create account
-             * into database server if its created it show
-             * success message otherwise it show failed message.
-            */
-            clearscn();
-            char username[BUFF_M];
-            printf(RED BOLD"create your name : "RESET);
-            scanf("%s",username);
-
-            char password[BUFF_M];
-            printf(RED BOLD"create your password : "RESET);
-            scanf("%s",password);
-
-            if(strcmp(username,"") == 0 || strcmp(password,"") == 0)
-                Error("The use credentials not found.");
-            else
-                //this create_new_account function init the all sql environment and it tells if any error aquired.
-                create_new_account(username,password);
-                
-        } else if(strcmp(argv[1],"-eu") == 0 || strcmp(argv[1],"--existUser") == 0){
-            
-        }
-    } else if(strcmp(argv[1],"-nu") == 0 || strcmp(argv[1],"--newUser") == 0){
-            /**
-             * The username and password to create account
-             * into database server if its created it show
-             * success message otherwise it show failed message.
-            */
-            clearscn();
-            char username[BUFF_M];
-            printf(RED BOLD"create your name : "RESET);
-            scanf("%s",username);
-
-            char password[BUFF_M];
-            printf(RED BOLD"create your password : "RESET);
-            scanf("%s",password);
-
-            if(strcmp(username,"") == 0 || strcmp(password,"") == 0)
-                Error("The use credentials not found.");
-            else
-                //this create_new_account function init the all sql environment and it tells if any error aquired.
-                create_new_account(username,password);
-                
-    } else {
-        Error("Sorry, because of you don\'t have an account of this vpn server.");
-        printf("You should run \"%ssudo <usage> -nu [or] sudo <usage> --newUser%s to create account in this vpn server.\n",MAGENTA,RESET);
-        exit(EXIT_FAILURE);
+        } else {
+            Error("The given user account not found in vpn server");
+        }   
+    } else if(choice == 2){
+        clearscn();
+        account_creator();
     }
 }
 
