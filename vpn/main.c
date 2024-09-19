@@ -70,7 +70,7 @@ int log_account(char *u_name, char *u_password){
         printf(GREEN BOLD"DB server status : SUCCESS\n"RESET);
     }
     // Prepare query string safely
-    char query[256];
+    char query[200];
     strcpy(query,"SELECT username, password FROM vpn;");
 
     // Execute the query
