@@ -6,6 +6,7 @@
 #include <pcap.h>
 #include <termios.h>
 #include <netinet/tcp.h>
+#include <netinet/ip_icmp.h>
 #include <netinet/ip.h>
 #include <openssl/aes.h>
 #include <openssl/ssl.h>
@@ -41,6 +42,20 @@ void clearscn(){
     system("clear");
 }
 
+void network_interfaces(){
+    pcap_if_t *interface,*list;
+    char errbuff[PCAP_ERRBUF_SIZE];
+
+    if(pcap_findalldevs(&list,errbuff) == -1){
+        Error("Can\'t find inerfaces");
+    } else {
+        printf("\t\t\tAVAILABLE DEVICES\n");
+        for(interface = list;interface;interface = interface->next){
+            printf(BOLD"Device names : %s\n"RESET,interface->name);
+        }
+    }
+    pcap_freealldevs(list);
+}
 /**
  * the log_account() has two arguments that's name,password to find the user already create a account or not.
  * if the user credentials are match in this name and password, the user have a account in this vpn account.
@@ -92,14 +107,6 @@ int log_account(char *u_name, char *u_password){
 
     // Close the connection and return success
     mysql_close(connection);
-}
-
-//Disable password echo : if we type the password it should be gather and can't echo to the user.
-void Disable_pass_echo(){
-    struct termios dis_pass_echo;
-    tcgetattr(STDIN_FILENO,&dis_pass_echo);
-    dis_pass_echo.c_lflag &= ~ECHO;
-    //To make disable and enable echo password system.
 }
 
 void account_creator(){
@@ -182,24 +189,40 @@ void get_datas_enc(const char *data, int len) {
 }
 
 //print the help of this of this vpn
-void print_help(char *arg){
-    printf("\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-\n");
-    printf("\t\t\t\t\tAVAILABLE ARGUMENTS\n");
-    printf("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--=-=-=-=-=-=-=-=-=-=-=-=-=-\n\n");
-    printf("-i [interface name] or --interface [interface name] :\t Capture tcp packets length for this interface.\n\n");
-    printf("-v [vpn name] or --vpn [vpn name]\t\t    : \t Enter the vpn name to connect vpn server.\n\n");
-    printf("     -s or --start \t\t\t\t    : \t This for vpn to start vpn server(with vpn server).\n\n");
-    printf("-pt [packet name] or --packetname [packet name]\t    :\t which you want to capture.(eg.,tcp,icmp)\n\n");
-    printf("-nu or --newUser\t\t\t\t    :\t Create new user account for this vpn.\n\n");
-    printf("-eu or --existUser\t\t\t\t    :\t Log in from already exist account.\n\n");
-    printf("-h or --help \t\t\t\t\t    :\t Help of this tool.\n\n");
-    printf("Usage : %s <command>\n",arg);
+void print_help() {
+    printf(BOLD"\n-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n");
+    printf("\t\t\t\t\t\t\tAVAILABLE COMMANDS\n");
+    printf("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n\n");
+    printf(" interfaces \t\t: \tTo list the available network interfaces in your device\n");
+    printf(" connect trute \t\t: \tTo connect to the VPN server\n");
+    printf(" help \t\t\t: \tShow available commands\n");
+    printf(" cap tcp \t\t: \tTo capture TCP packets\n");
+    printf(" cap icmp \t\t: \tTo capture ICMP packets\n");
+    printf(" clear \t\t\t: \tTo clear the VPN shell terminal\n");
+    printf(" exit \t\t\t: \tTo exit from trutevpn\n"RESET);
 }
+
 
 // Error handling function
 void handleErrors(void) {
     ERR_print_errors_fp(stderr);
     abort();
+}
+
+/**
+ * the capture icmp function used to capture icmp packets and their info
+*/
+void capture_icmp(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_char *packet){
+    struct iphdr *ip_hdr = (struct iphdr *)(packet+14);  // IP header is after Ethernet header (14 bytes)
+    if (ip_hdr->protocol == IPPROTO_ICMP) {  // Check if the packet is ICMP
+        struct icmphdr *icmp_hdr = (struct icmphdr *)(packet + 14 + (ip_hdr->ihl * 4));
+        
+        if(icmp_hdr->type == 8){
+            printf("Captured ICMP packet: Type = ICMP Ping Request, Code = %d\n", icmp_hdr->code);
+        } else {
+            printf("Captured ICMP packet: Type = IMCP Ping Reply, Code = %d\n", icmp_hdr->code);
+        }
+    }
 }
 
 /**
@@ -287,23 +310,6 @@ void cap_pack_tcp(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_c
     // printf("\n\n");
 }
 
-void cap_pack_icmp(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_char *packet){
-    system("clear");
-    u_char final_enc_val[AES_BLOCK_SIZE+AES_BLOCK_SIZE];
-    //starts to capture packets
-    printf(GREEN"\t\t\t\t\t\t Length of the packets captured : %d MB\\S\r\n\n",pkthdr->caplen);
-    printf(GREEN"\t\t\t\t\t\t packet type\t\t\t: ICMP(ping)\n");
-    fflush(stdout);
-    sleep(1);
-
-    aes_encrypt(R_WORD,final_enc_val,SEC_KEY);
-
-    // for(int i = 0;i < AES_BLOCK_SIZE;i++){
-    //     printf("%02X ",final_enc_val[i]);
-    // } 
-    // printf("\n\n");
-}
-
 /**
  * This function will to make packet reciver machine
  * it capture each tcp/ip and icmp packets.
@@ -337,13 +343,6 @@ void init_pack(pcap_t *handle,char *interface_name,char *p_type){//p_type stands
     }
 
     if(strcmp(p_type,"tcp") == 0){
-        if(pcap_loop(handle,0,cap_pack_tcp,NULL) < 0){
-            perror("pcap_loop()");
-            printf("Usage Interface %s",interface_name);
-            pcap_breakloop(handle);
-        }
-    } else if(strcmp(p_type,"icmp") == 0){
-
         if(pcap_loop(handle,0,cap_pack_tcp,NULL) < 0){
             perror("pcap_loop()");
             printf("Usage Interface %s",interface_name);
@@ -492,7 +491,10 @@ int main(){
 
     int choice;
     pcap_t *interface;
-    char *user_choice;
+    struct pcap_pkthdr *pcap_thdr;
+    char pcaperrorbuff[PCAP_ERRBUF_SIZE];
+    char buff[BUFF_M];
+    char user_choice[25];
 
     clearscn();
     main_interface();
@@ -513,6 +515,7 @@ int main(){
         int is_logged = log_account(username,password);
     
         if(is_logged == LOGIN){
+            clearscn();
             //If user have a account in vpn server.it allow the user to use this server.
             printf("========================================================================================\n");
             printf("\t\t\t\t\tWelcome to our vpn server\n");
@@ -523,7 +526,7 @@ int main(){
             printf("                                ╚██╗░██╔╝██████╔╝██╔██╗██║\n");
             printf("                                ░╚████╔╝░██╔═══╝░██║╚████║\n");
             printf("                                ░░╚██╔╝░░██║░░░░░██║░╚███║\n");
-            printf("                                ░░░╚═╝░░░╚═╝░░░░░╚═╝░░╚══╝\n");
+            printf("                                ░░░╚═╝░░░╚═╝░░░░░╚═╝░░╚══╝\n\n");
             printf("========================================================================================\n\n");
             printf(GREEN BOLD"Now on the vpn interface...\n\n"RESET);
             sleep(5);
@@ -531,11 +534,19 @@ int main(){
 
             //Now get input from users to accomplish furthur tasks.
             while(1){
-                printf(GREEN BOLD"%s > "RESET,username);
+                printf(GREEN BOLD"%s@trute > "RESET,username);
                 scanf("%s",user_choice);
 
                 if(strcmp(user_choice,"help") == 0){
-                    printf("Jeichitom maara");break;
+                    print_help();
+                } else if(strcmp(user_choice,"interfaces") == 0) {
+                    network_interfaces();
+                } else if(strcmp(user_choice,"cap tcp ") == 0){
+                    // init_pack(&interface,)
+                } else if(strcmp(user_choice,"clear") == 0){
+                    clearscn();
+                } else {
+                    Error("Invalid command");
                 }
             }
         } else {
