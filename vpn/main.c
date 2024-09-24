@@ -202,8 +202,8 @@ void print_help() {
     printf(" interfaces \t\t: \tTo list the available network interfaces in your device\n");
     printf(" connect trute \t\t: \tTo connect to the VPN server\n");
     printf(" help \t\t\t: \tShow available commands\n");
-    printf(" cap tcp \t\t: \tTo capture TCP packets\n");
-    printf(" cap icmp \t\t: \tTo capture ICMP packets\n");
+    printf(" capTCP \t\t: \tTo capture TCP packets\n");
+    printf(" capICMP \t\t: \tTo capture ICMP packets\n");
     printf(" clear \t\t\t: \tTo clear the VPN shell terminal\n");
     printf(" exit \t\t\t: \tTo exit from trutevpn\n"RESET);
 }
@@ -303,10 +303,10 @@ void cap_pack_tcp(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_c
     system("clear");
     u_char final_enc_val[AES_BLOCK_SIZE+AES_BLOCK_SIZE];
     //starts to capture packets
-    printf(GREEN"\t\t\t\t\t\t\t\t\t Length of the packets captured : %d MB\\S\r\n\n",pkthdr->caplen);
+    printf(GREEN"\t\t\t\t\t\t\t Length of the packets captured : %d MB\\S\r\n\n",pkthdr->caplen);
     fflush(stdout);
-    printf(GREEN"\t\t\t\t\t\t\t\t\t Packet captured at\t\t: %ld\n\n",pkthdr->ts.tv_sec);
-    printf(GREEN"\t\t\t\t\t\t\t\t\t packet type\t\t\t: TCP\n");
+    printf(GREEN"\t\t\t\t\t\t\t Packet captured at\t\t: %ld\n\n",pkthdr->ts.tv_sec);
+    printf(GREEN"\t\t\t\t\t\t\t packet type\t\t\t: TCP\n");
     sleep(1);
 
     aes_encrypt(R_WORD,final_enc_val,SEC_KEY);
@@ -560,9 +560,16 @@ int main(){
                 } else if(strcmp(user_choice,"capTCP") == 0){
                     network_interfaces();
                     char *choose_net;
-                    printf(BOLD"Enter your interface name and continue : "RESET);
+                    printf(BOLD"\nEnter your interface name and continue : "RESET);
                     scanf("%s",choose_net);
                     init_pack(interface,choose_net,"tcp");
+                } else if(strcmp(user_choice,"capICMP") == 0) {
+                    network_interfaces();
+                    char *choose_net_icmp;
+                    printf(BOLD"\nEnter your interface name and continue : "RESET);
+                    scanf("%s",choose_net_icmp);
+                    clearscn();
+                    init_pack(interface,choose_net_icmp,"icmp");
                 } else if(strcmp(user_choice,"clear") == 0){
                     clearscn();
                 } else {
@@ -577,11 +584,3 @@ int main(){
         account_creator();
     }
 }
-
-/**
- * TODO : 
- * 1.To make ensure the login function.
- * 2.To make password has should been secure.
- * 3.make to capture the icmp packet:
- *      # we creates checksum for capture this packets.
-*/
