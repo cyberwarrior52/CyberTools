@@ -13,7 +13,7 @@
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <mysql/mysql.h>
-#include "protos.h"
+#include "includes/main.h"
 
 //This global variable for create sql environment.
 MYSQL *connection;
@@ -40,6 +40,12 @@ MYSQL *connection;
 
 void clearscn(){
     system("clear");
+}
+
+void stopexec(){
+    fflush(stdout);
+    clearscn();
+    main_interface();
 }
 
 void network_interfaces(){
@@ -297,9 +303,10 @@ void cap_pack_tcp(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_c
     system("clear");
     u_char final_enc_val[AES_BLOCK_SIZE+AES_BLOCK_SIZE];
     //starts to capture packets
-    printf(GREEN"\t\t\t\t\t\t Length of the packets captured : %d MB\\S\r\n\n",pkthdr->caplen);
+    printf(GREEN"\t\t\t\t\t\t\t\t\t Length of the packets captured : %d MB\\S\r\n\n",pkthdr->caplen);
     fflush(stdout);
-    printf(GREEN"\t\t\t\t\t\t packet type\t\t\t: TCP\n");
+    printf(GREEN"\t\t\t\t\t\t\t\t\t Packet captured at\t\t: %ld\n\n",pkthdr->ts.tv_sec);
+    printf(GREEN"\t\t\t\t\t\t\t\t\t packet type\t\t\t: TCP\n");
     sleep(1);
 
     aes_encrypt(R_WORD,final_enc_val,SEC_KEY);
@@ -316,6 +323,7 @@ void cap_pack_tcp(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_c
 */
 void init_pack(pcap_t *handle,char *interface_name,char *p_type){//p_type stands for packets type.
     char error[PCAP_ERRBUF_SIZE];
+
     struct bpf_program bp;
                                                 
     handle = pcap_open_live(interface_name,BUFSIZ,1,1000,error);
@@ -346,6 +354,14 @@ void init_pack(pcap_t *handle,char *interface_name,char *p_type){//p_type stands
         if(pcap_loop(handle,0,cap_pack_tcp,NULL) < 0){
             perror("pcap_loop()");
             printf("Usage Interface %s",interface_name);
+            pcap_breakloop(handle);
+        } 
+    }
+
+    if(strcmp(p_type,"icmp") == 0){
+        if(pcap_loop(handle,0,capture_icmp,NULL) < 0){
+            Error("pcap_loop() error");
+            printf("Usage Interface %s\n",interface_name);
             pcap_breakloop(handle);
         }
     } else {
@@ -541,8 +557,12 @@ int main(){
                     print_help();
                 } else if(strcmp(user_choice,"interfaces") == 0) {
                     network_interfaces();
-                } else if(strcmp(user_choice,"cap tcp ") == 0){
-                    // init_pack(&interface,)
+                } else if(strcmp(user_choice,"capTCP") == 0){
+                    network_interfaces();
+                    char *choose_net;
+                    printf(BOLD"Enter your interface name and continue : "RESET);
+                    scanf("%s",choose_net);
+                    init_pack(interface,choose_net,"tcp");
                 } else if(strcmp(user_choice,"clear") == 0){
                     clearscn();
                 } else {
