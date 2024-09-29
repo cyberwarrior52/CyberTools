@@ -12,17 +12,6 @@ def print_help(args):
     print("Usage <command> :", args)
 
 
-# Duplicate interface finder
-def duplicate_finder(var) -> list:
-    iterate = 0
-    count = len(var)
-    for finder in count:
-        if var[iterate] == var:
-            return var
-        else:
-            pass
-
-
 available_devices = []
 final_password = []
 
