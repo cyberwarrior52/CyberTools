@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <pcap.h>
-#include <termios.h>
 #include <netinet/tcp.h>
 #include <netinet/ip_icmp.h>
 #include <netinet/ip.h>
@@ -14,6 +13,7 @@
 #include <openssl/evp.h>
 #include <mysql/mysql.h>
 #include "includes/main.h"
+#include "includes/sec.h"
 
 //This global variable for create sql environment.
 MYSQL *connection;
@@ -153,12 +153,15 @@ void create_new_account(char *u_name, char *u_password) {
     snprintf(query, sizeof(query), "INSERT INTO vpn (username, password) VALUES ('%s', '%s')", u_name, u_password);
 
     // Execute the query
-    if (mysql_query(connection, query) != 0) {
-        fprintf(stderr, "Query failed: %s\n", mysql_error(connection));
-    } else {
-        printf(GREEN BOLD"Account create status : SUCCESS\n");
+    if(IllegalCharFinder(query)){
+        if (mysql_query(connection, query) != 0) {
+            if(mysql_error(connection)){
+                exit(EXIT_FAILURE);
+            }
+        } else {
+            printf(GREEN BOLD"Account create status : SUCCESS\n");
+        }
     }
-
     // Close the connection and return success
     mysql_close(connection);
 }
