@@ -100,16 +100,10 @@ int log_account(char *u_name, char *u_password){
     }
 
     result = mysql_store_result(connection);
-
-    while((fetch_row = mysql_fetch_row(result)) != NULL){
-        //check the logged username exist or not.
-        if(strcmp(u_name,fetch_row[0]) == 0 && strcmp(u_password,fetch_row[1]) == 0)
-            // printf("the user account exist\n");
-            return LOGIN;
-        else
-            // printf("does not exist\n");
-            return N_LOGIN;
-    }
+    fetch_row = mysql_fetch_row(result);
+    //check the logged username exist or not.
+    if(fetch_row != NULL) return LOGIN;// printf("the user account exist\n");
+    else return N_LOGIN; // printf("does not exist\n");
 
     // Close the connection and return success
     mysql_close(connection);
@@ -126,7 +120,7 @@ void account_creator(){
     scanf("%s",password);
 
     if(strcmp(username,"") == 0 || strcmp(password,"") == 0)
-        Error("The use credentials not found.");
+        Error("The user credentials not found.");
     else
         //this create_new_account function init the all sql environment and it tells if any error aquired.
         create_new_account(username,password);
@@ -141,8 +135,8 @@ void create_new_account(char *u_name, char *u_password) {
 
     // Get database connection parameters from file
     const char *db_server = "localhost";
-    const char *db_user = "root";
-    const char *db_password = "mohamed";
+    const char *db_user = "mohamed";
+    const char *db_password = "newpassword";
     const char *database_name = "vpn";
 
     // Connect to the database
@@ -204,6 +198,7 @@ void print_help() {
     printf(" help \t\t\t: \tShow available commands\n");
     printf(" capTCP \t\t: \tTo capture TCP packets\n");
     printf(" capICMP \t\t: \tTo capture ICMP packets\n");
+    printf(" connect\t\t: \tconnect to our server\n");
     printf(" clear \t\t\t: \tTo clear the VPN shell terminal\n");
     printf(" exit \t\t\t: \tTo exit from trutevpn\n"RESET);
 }
@@ -572,6 +567,37 @@ int main(){
                     init_pack(interface,choose_net_icmp,"icmp");
                 } else if(strcmp(user_choice,"clear") == 0){
                     clearscn();
+                } else if(strcmp(user_choice,"connect") == 0){
+                    struct sockaddr_in src;
+                    char *server_ip = "1.1.1.1";
+                    src.sin_family = AF_INET;
+                    src.sin_port = htons(8080);
+
+                    int server_sock = socket(AF_INET,SOCK_STREAM,0);
+
+                    if(server_sock == -1){
+                        Error("socket() not initialized");
+                    } else printf("t1 success\n");
+                    if(inet_pton(AF_INET,server_ip,&src.sin_addr.s_addr) < 1){
+                        Error("inet_pton() have some to denied");
+                    } else printf("t2 success\n");
+                    
+                    int connection = connect(server_sock,(struct sockaddr *)&src,sizeof(src));
+
+                    if(connection == 0){
+                        printf("connection successfully\n");
+                        clearscn();
+                        // system("/bin/bash");
+                        /**
+                         * if we make the linux server and then.if its successfully connects with the server.
+                         * It execute bash shell for access the server totally.
+                        */
+                        /**instead of ----->*/ printf("Welcome to our server\n");
+                        exit(EXIT_FAILURE);
+                        close(server_sock);
+                    } else {
+                        Error("connect() failed to establish server");
+                    }
                 } else {
                     Error("Invalid command");
                 }
