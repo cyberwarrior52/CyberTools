@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cctype>
 #include <pcap.h>
+#include <linux/socket.h>
 
 using namespace std;
 
@@ -27,6 +28,15 @@ void Interface(){
     cout<<"░▒▓█▓▒░░▒▓█▓▒░             ░▒▓███████▓▒░ ░▒▓█▓▒░        ░▒▓██████▓▒░  ░▒▓██████▓▒░ ░▒▓█▓▒░             ░▒▓███████▓▒░ ░▒▓████████▓▒░   ░▒▓█▓▒░    ░▒▓████████▓▒░░▒▓██████▓▒░   ░▒▓█▓▒░    ░▒▓██████▓▒░ ░▒▓█▓▒░░▒▓█▓▒░ "<<endl;
     cout<<"                                                                                                                                                                                                                     "<<endl;
     cout<<"\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t-by Secure World                                                                                                                                                                                                                     "<<endl;                                                                                                                                                                                            
+}
+
+void found_spoofed_ip(){
+    struct sockaddr_in server_addr;
+    int sock = socket(AF_INET,SOCK_STREAM,0);
+
+    if(sock == -1) perror("In Socket()");
+    if(connect(sock,(struct sockaddr*)&server_addr,sizeof(server_addr) == -1)) cout<<"Spoofed ip found :"<<server_addr.sin_addr.s_addr<<endl;
+    else cout<<"valid ip"<<endl;
 }
 
 void print_help() {
@@ -70,14 +80,11 @@ int main() {
             print_help();
         } else if (user_cmd == "interfaces") {
             print_all_network_devices();
-        } else if (user_cmd == "start ghost") {
-            cout << "Starting ghost functionality (to be implemented)...\n";
+        } else if (user_cmd == "start") {
+            // cout << "Starting ghost functionality (to be implemented)...\n";
+            found_spoofed_ip();
         } else {
             cout << "Error: No commands found for " << user_cmd << endl;
         }
     }
 }
-
-/*
-Finalized Update by Sibhi
-*/
