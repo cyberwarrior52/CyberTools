@@ -7,16 +7,10 @@
 
 using namespace std;
 
-string to_opposite_case(const string &input) {
+string to_lowercase(const string &input) {
     string result;
     for (char ch : input) {
-        if (islower(ch)) {
-            result += toupper(ch);
-        } else if (isupper(ch)) {
-            result += tolower(ch);
-        } else {
-            result += ch;
-        }
+        result += tolower(ch);
     }
     return result;
 }
@@ -70,7 +64,7 @@ int main() {
         cout << "Enter Your Command: ";
         cin >> user_cmd;
 
-        user_cmd = to_opposite_case(user_cmd);
+        user_cmd = to_lowercase(user_cmd);
 
         if (user_cmd == "help") {
             print_help();
@@ -85,5 +79,5 @@ int main() {
 }
 
 /*
-Updated by Sibhi
+Finalized Update by Sibhi
 */
