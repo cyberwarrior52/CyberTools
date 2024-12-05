@@ -1,8 +1,9 @@
 import phonenumbers
 from phonenumbers import geocoder,carrier,timezone
 from colorama import Fore,init,Style
-from os import system
+from os import system,getuid
 from sys import exit
+import keyboard
 
 BOLD = Style.BRIGHT
 RESET = Style.RESET_ALL
@@ -21,7 +22,7 @@ def _help():
     print()
     print(f"{BOLD}Syntax of number{RESET} : {Fore.GREEN}{BOLD}number{RESET} {BOLD}<xxxxxyyyyy>{RESET}")
     print(f"{Fore.BLUE}Example : number +91xxxxxyyyyy{RESET}\n")
-    print("{}If you want to exit, use command \'exit\'{}".format(Fore.RED),RESET)
+    print("{}If you want to exit, use command \'exit\'{}".format(Fore.RED,RESET))
     for line2 in range(41):
         print(f"{BOLD}={RESET}",end='')
     print()
@@ -42,7 +43,6 @@ def main():
     print(f"Is valid : {phonenumbers.is_valid_number(number_parser)}")
     print(f"Is valid for region : {phonenumbers.is_valid_number_for_region(number_parser,getregion)}")
     print(f"Is mobile number : {check_for_mobile_number(number_parser)}")
-    print("Number contains alphabet characters : {}".format(phonenumbers.is_alpha_number(number_parser)))
     print("Time zone for country : {}{}".format(timezone.time_zones_for_geographical_number(number_parser),RESET))
 
 def interface():
@@ -51,9 +51,9 @@ def interface():
     print("2.help{}".format(RESET))
 
     while True:
-        user_input = int(input("Enter your choice to continue : "))
-
         try:
+            user_input = int(input("Enter your choice to continue : "))
+
             if user_input == 1:
                 main()
             elif user_input == 2:
@@ -62,12 +62,16 @@ def interface():
                 system("clear")
                 continue
         except KeyboardInterrupt:
-            YorN = input("Do you want to continue : ")
-            if YorN == "y":
-                continue
-            else:
+            print("\nDo you want to exit ? ")
+            if keyboard.is_pressed('Enter'):
                 exit()
+            else:
+                print("Press enter to exit...")
+
 
 
 if __name__ == "__main__":
-    interface()
+    if getuid() == 0:
+        interface()
+    else:
+        print(f"{BOLD}{Fore.RED}Tool must run by root user{RESET}")
